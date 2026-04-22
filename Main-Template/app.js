@@ -999,7 +999,10 @@
     const svgW = svgImg.naturalWidth || svgEl.clientWidth;
     const svgH = svgImg.naturalHeight || svgEl.clientHeight;
     const scoreCardH = 100;
-    const headerH = 50;
+    const attempt = attempts[activeAttemptIdx];
+    const isDaily = attempt && attempt.settings && attempt.settings.isDaily;
+    const dailyDate = isDaily ? attempt.settings.dailyDate : "";
+    const headerH = isDaily ? 80 : 50;
     const canvasW = Math.max(svgW, 500);
     const canvasH = headerH + svgH + scoreCardH + padding * 3;
 
@@ -1033,6 +1036,26 @@
     ctx.font = "bold 16px 'Segoe UI', Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(headerText, canvasW / 2, padding + 16);
+
+    // Draw daily challenge badge if applicable
+    if (isDaily) {
+      const badgeText = "\uD83C\uDF1F Daily Challenge \u2014 " + dailyDate;
+      ctx.font = "bold 13px 'Segoe UI', Arial, sans-serif";
+      const textW = ctx.measureText(badgeText).width;
+      const badgePadX = 14;
+      const badgePadY = 6;
+      const badgeW = textW + badgePadX * 2;
+      const badgeH = 22;
+      const badgeX = (canvasW - badgeW) / 2;
+      const badgeY = padding + 28;
+      ctx.fillStyle = "#8e44ad";
+      ctx.beginPath();
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 11);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.fillText(badgeText, canvasW / 2, badgeY + badgeH - 6);
+    }
 
     // Draw SVG notation
     ctx.drawImage(svgImg, (canvasW - svgW) / 2, headerH + padding, svgW, svgH);
@@ -1121,21 +1144,23 @@
         setStatus("");
       } catch (err) {
         if (err.name !== "AbortError") {
-          fallbackDownloadAudio(audioBlob, ext);
+          fallbackDownload(audioBlob, "sightreading-recording." + ext);
+          if (imgBlob) fallbackDownload(imgBlob, "sightreading-score.png");
         }
         setStatus("");
       }
     } else {
-      fallbackDownloadAudio(audioBlob, ext);
+      fallbackDownload(audioBlob, "sightreading-recording." + ext);
+      if (imgBlob) fallbackDownload(imgBlob, "sightreading-score.png");
       setStatus("");
     }
   }
 
-  function fallbackDownloadAudio(blob, ext) {
+  function fallbackDownload(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "sightreading-recording." + ext;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1165,6 +1190,8 @@
   let currentBpm = 80;
   let currentNumMeasures = 8;
   let currentMode = null;
+  let currentIsDaily = false;
+  let currentDailyDate = "";
 
   const MAX_ATTEMPTS = 4;
   let attempts = [];        // Array of { scoreResult, index }
@@ -1191,6 +1218,8 @@
     clearStatus();
     clearAttempts();
     stopPlayback();
+    currentIsDaily = false;
+    currentDailyDate = "";
     document.getElementById("dailyBanner").style.display = "none";
 
     document.getElementById("playBtn").disabled = false;
@@ -1354,6 +1383,8 @@
         bpm: currentBpm,
         difficulty: document.getElementById("difficultySelect").value,
         seed: lastUsedSeed,
+        isDaily: currentIsDaily,
+        dailyDate: currentDailyDate,
       };
       // Wait for audio blob to be ready before storing attempt
       audioReady.then(function () {
@@ -1687,21 +1718,21 @@
     const content = document.getElementById("historyContent");
 
     const ranges = [
-      { label: "S (95\u2013100%)", cls: "grade-s" },
-      { label: "A (80\u201394%)", cls: "grade-a" },
-      { label: "B (60\u201379%)", cls: "grade-b" },
-      { label: "C (40\u201359%)", cls: "grade-c" },
-      { label: "D (0\u201339%)", cls: "grade-d" },
+      { label: "S (100%)", cls: "grade-s" },
+      { label: "A (90\u201399%)", cls: "grade-a" },
+      { label: "B (75\u201389%)", cls: "grade-b" },
+      { label: "C (60\u201374%)", cls: "grade-c" },
+      { label: "D (0\u201359%)", cls: "grade-d" },
       { label: "DNF", cls: "grade-dnf" },
     ];
 
     const counts = ranges.map(() => 0);
     for (const e of history) {
       if (e.stoppedEarly) counts[5]++;
-      else if (e.score >= 95) counts[0]++;
-      else if (e.score >= 80) counts[1]++;
-      else if (e.score >= 60) counts[2]++;
-      else if (e.score >= 40) counts[3]++;
+      else if (e.score === 100) counts[0]++;
+      else if (e.score >= 90) counts[1]++;
+      else if (e.score >= 75) counts[2]++;
+      else if (e.score >= 60) counts[3]++;
       else counts[4]++;
     }
 
@@ -1793,6 +1824,8 @@
     clearAttempts();
     stopPlayback();
 
+    currentIsDaily = true;
+    currentDailyDate = dateStr;
     document.getElementById("playBtn").disabled = false;
     document.getElementById("dailyBanner").textContent = "\uD83C\uDF1F Daily Challenge — " + dateStr;
     document.getElementById("dailyBanner").style.display = "block";

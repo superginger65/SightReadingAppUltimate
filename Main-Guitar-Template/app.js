@@ -29,7 +29,7 @@
   const MINOR_SCALE = [0, 2, 3, 5, 7, 8, 10];
 
   const RANGE_LOW  = 52;  // E3
-  const RANGE_HIGH = 79;  // G5
+  const RANGE_HIGH = 77;  // F5
 
   // ==========================================================
   // 1b. SEEDED PSEUDO-RANDOM NUMBER GENERATOR
@@ -1436,56 +1436,86 @@
   let playbackTimeouts = [];
   let isPlaying = false;
   let highlightedEl = null;
+  let playbackMasterGain = null;
+  let activeSources = [];
   const HIGHLIGHT_COLOR = "#00aaff";
+
+  // --- Audio sample mapping: MIDI → filename (full E3–F5 chromatic range) ---
+  const MIDI_SAMPLE_MAP = {
+    52: "audio/E.mp3",           // E3
+    53: "audio/F.mp3",           // F3
+    54: "audio/Fs-Gb.wav",       // F#3/Gb3
+    55: "audio/G.mp3",           // G3
+    56: "audio/Gs-Ab.wav",       // G#3/Ab3
+    57: "audio/A.mp3",           // A3
+    58: "audio/As-Bb.wav",       // A#3/Bb3
+    59: "audio/B.mp3",           // B3
+    60: "audio/C1.mp3",          // C4
+    61: "audio/Cs-Db1.mp3",      // C#4/Db4
+    62: "audio/D1.wav",          // D4
+    63: "audio/Ds1-Eb1.wav",     // D#4/Eb4
+    64: "audio/E1.wav",          // E4
+    65: "audio/F1.wav",          // F4
+    66: "audio/Fs1-Gb1.mp3",     // F#4/Gb4
+    67: "audio/G1.wav",          // G4
+    68: "audio/Gs1-Ab1.mp3",     // G#4/Ab4
+    69: "audio/A1.wav",          // A4
+    70: "audio/As1-Bb1.mp3",     // A#4/Bb4
+    71: "audio/B1.mp3",          // B4
+    72: "audio/C2.wav",          // C5
+    73: "audio/Cs2-Db2.wav",     // C#5/Db5
+    74: "audio/D2.wav",          // D5
+    75: "audio/Ds2-Eb2.wav",     // D#5/Eb5
+    76: "audio/E2.wav",          // E5
+    77: "audio/F2.mp3",          // F5
+  };
+
+  const sampleBuffers = {};
+  let samplesLoaded = false;
+
+  async function loadSampleBuffers(ctx) {
+    if (samplesLoaded) return;
+    const entries = Object.entries(MIDI_SAMPLE_MAP);
+    await Promise.all(entries.map(async function ([midi, url]) {
+      const fullUrl = new URL(url, window.location.href).href;
+      try {
+        const resp = await fetch(fullUrl);
+        if (!resp.ok) {
+          console.error("Audio load failed: HTTP " + resp.status + " for " + fullUrl);
+          return;
+        }
+        const arrayBuf = await resp.arrayBuffer();
+        sampleBuffers[midi] = await ctx.decodeAudioData(arrayBuf);
+      } catch (e) {
+        console.error("Audio load failed for " + fullUrl, e);
+      }
+    }));
+    samplesLoaded = true;
+  }
 
   function midiToHz(midi) {
     return 440 * Math.pow(2, (midi - 69) / 12);
   }
 
-  /** Play a single note with a plucked-guitar-like envelope */
-  function playNote(ctx, midi, startTime, duration) {
-    const hz = midiToHz(midi);
+  /** Schedule a sampled guitar note via AudioBufferSourceNode. */
+  function scheduleNote(midi, audioTime, durationSec, ctx, dest) {
+    const buf = sampleBuffers[midi];
+    if (!buf) return;
 
-    const noteEnd = startTime + duration * 0.95;
+    const source = ctx.createBufferSource();
+    source.buffer = buf;
 
-    // Fundamental
-    const osc = ctx.createOscillator();
-    osc.type = "triangle";
-    osc.frequency.value = hz;
+    const noteGain = ctx.createGain();
+    noteGain.gain.setValueAtTime(1.0, audioTime);
+    const fadeStart = audioTime + durationSec - 0.05;
+    noteGain.gain.setValueAtTime(1.0, fadeStart);
+    noteGain.gain.linearRampToValueAtTime(0, audioTime + durationSec);
 
-    // Slight harmonic for body
-    const osc2 = ctx.createOscillator();
-    osc2.type = "sine";
-    osc2.frequency.value = hz * 2;
-
-    const gain = ctx.createGain();
-    const gain2 = ctx.createGain();
-
-    // Pluck envelope: quick attack, initial decay, sustain, then fade out
-    const attackEnd = startTime + 0.008;
-    const bodyEnd = startTime + Math.min(0.06, duration * 0.1);
-    const fadeStart = noteEnd - Math.min(0.15, duration * 0.15);
-
-    gain.gain.setValueAtTime(0.001, startTime);
-    gain.gain.linearRampToValueAtTime(0.25, attackEnd);
-    gain.gain.exponentialRampToValueAtTime(0.10, bodyEnd);
-    // Hold sustain level until fade-out
-    gain.gain.setValueAtTime(0.10, fadeStart);
-    gain.gain.exponentialRampToValueAtTime(0.001, noteEnd);
-
-    gain2.gain.setValueAtTime(0.001, startTime);
-    gain2.gain.linearRampToValueAtTime(0.06, startTime + 0.005);
-    gain2.gain.exponentialRampToValueAtTime(0.001, startTime + Math.min(0.5, duration * 0.4));
-
-    osc.connect(gain);
-    osc2.connect(gain2);
-    gain.connect(ctx.destination);
-    gain2.connect(ctx.destination);
-
-    osc.start(startTime);
-    osc.stop(noteEnd + 0.05);
-    osc2.start(startTime);
-    osc2.stop(noteEnd + 0.05);
+    source.connect(noteGain);
+    noteGain.connect(dest);
+    source.start(audioTime);
+    source.stop(audioTime + durationSec + 0.01);
+    activeSources.push({ source, gain: noteGain });
   }
 
   function getAllNoteRestEls() {
@@ -1525,13 +1555,19 @@
     highlightedEl = null;
   }
 
-  function startPlayback() {
+  async function startPlayback() {
     if (!currentExpectedNotes || currentExpectedNotes.length === 0) return;
 
     if (!playbackCtx) {
       playbackCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
-    if (playbackCtx.state === "suspended") playbackCtx.resume();
+    if (playbackCtx.state === "suspended") await playbackCtx.resume();
+
+    await loadSampleBuffers(playbackCtx);
+
+    playbackMasterGain = playbackCtx.createGain();
+    playbackMasterGain.connect(playbackCtx.destination);
+    activeSources = [];
 
     isPlaying = true;
     const playBtn = document.getElementById("playBtn");
@@ -1554,7 +1590,7 @@
     // Schedule count-in clicks
     for (let beat = 0; beat < countInBeats; beat++) {
       const time = baseTime + beat * secPerBeat;
-      playClick(playbackCtx, time, beat === 0, playbackCtx.destination);
+      playClick(playbackCtx, time, beat === 0, playbackMasterGain);
     }
 
     // Count-in display (counts up: 1, 2, 3, 4...)
@@ -1579,18 +1615,24 @@
     const totalBeats = currentNumMeasures * beatsPerMeasure;
     for (let beat = 0; beat < totalBeats; beat++) {
       const time = melodyBaseTime + beat * secPerBeat;
-      playClick(playbackCtx, time, (beat % beatsPerMeasure) === 0, playbackCtx.destination);
+      playClick(playbackCtx, time, (beat % beatsPerMeasure) === 0, playbackMasterGain);
     }
 
     const allEls = getAllNoteRestEls();
+
+    // Gain node for sample playback — routed through master so stopPlayback can kill it
+    const sampleGain = playbackCtx.createGain();
+    sampleGain.connect(playbackMasterGain);
 
     for (let i = 0; i < currentExpectedNotes.length; i++) {
       const note = currentExpectedNotes[i];
       const noteStart = melodyBaseTime + note.startTime;
 
-      // Schedule audio for pitched notes
+      // Schedule audio for pitched notes via sampled guitar buffer
+      // Advance audio by 40ms so samples play slightly before the click
+      // (samples have slight decode/playback latency)
       if (!note.isRest && note.midi != null) {
-        playNote(playbackCtx, note.midi, noteStart, note.duration * 0.9);
+        scheduleNote(note.midi, noteStart - 0.04, note.duration * 0.9, playbackCtx, sampleGain);
       }
 
       // Schedule visual highlight
@@ -1620,11 +1662,25 @@
     clearHighlight();
     clearStatus();
 
-    // Close the audio context to kill all scheduled oscillators
-    if (playbackCtx) {
-      playbackCtx.close().catch(() => {});
-      playbackCtx = null;
+    // Smooth 50ms fade-out on master gain, then disconnect (keeps ctx + sample cache alive)
+    if (playbackMasterGain && playbackCtx) {
+      const now = playbackCtx.currentTime;
+      playbackMasterGain.gain.setValueAtTime(playbackMasterGain.gain.value, now);
+      playbackMasterGain.gain.linearRampToValueAtTime(0, now + 0.05);
+      const masterRef = playbackMasterGain;
+      setTimeout(function () {
+        try { masterRef.disconnect(); } catch (e) {}
+      }, 80);
+      playbackMasterGain = null;
     }
+
+    const srcCopy = activeSources.slice();
+    setTimeout(function () {
+      for (const item of srcCopy) {
+        try { item.source.stop(); } catch (e) {}
+      }
+    }, 80);
+    activeSources = [];
 
     const playBtn = document.getElementById("playBtn");
     playBtn.textContent = "\u25B6 Begin";

@@ -1629,10 +1629,10 @@
       const noteStart = melodyBaseTime + note.startTime;
 
       // Schedule audio for pitched notes via sampled guitar buffer
-      // Advance audio by 40ms so samples play slightly before the click
-      // (samples have slight decode/playback latency)
+      // Advance audio so the perceived attack lands on the beat
+      // (samples have pre-transient silence + decode/playback latency)
       if (!note.isRest && note.midi != null) {
-        scheduleNote(note.midi, noteStart - 0.04, note.duration * 0.9, playbackCtx, sampleGain);
+        scheduleNote(note.midi, noteStart - 0.12, note.duration * 0.9, playbackCtx, sampleGain);
       }
 
       // Schedule visual highlight

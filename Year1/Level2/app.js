@@ -13,9 +13,9 @@
   const NOTE_NAMES = ["C", "^C", "D", "^D", "E", "F", "^F", "G", "^G", "A", "^A", "B"];
   const FLAT_NAMES = ["C", "_D", "D", "_E", "E", "F", "_G", "G", "_A", "A", "_B", "B"];
 
-  // Level 2 — C major only, allowed pitches: D4, G4, A4, B4, C5, D5
+  // Level 2 — G major only, allowed pitches: D4, G4, A4, B4, C5, D5
   const KEY_DEFS = {
-    "C": { tonic: 60, mode: "major", abcKey: "C", usesFlats: false,
+    "G": { tonic: 55, mode: "major", abcKey: "G", usesFlats: false,
            allowedPitches: [62, 67, 69, 71, 72, 74] },
   };
 

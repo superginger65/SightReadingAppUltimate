@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(command -v pdftoppm)",
+      "Bash(command -v pdftotext)",
+      "Bash(where pdftoppm *)",
+      "Bash(where pdftocairo *)",
+      "Bash(where magick *)",
+      "Bash(where python *)",
+      "Bash(python -c \"import fitz; print\\(fitz.__version__\\)\")",
+      "Bash(where py *)",
+      "Bash(where node *)",
+      "PowerShell(Get-Command python, py, node, magick, pdftoppm, pdftocairo, gs -ErrorAction SilentlyContinue)"
+    ]
+  }
+}

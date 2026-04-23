@@ -100,7 +100,7 @@
     level: {
       maxInterval: 4, stepBias: 0.55,
       rhythms34: ["1 1 1", "2 1", "1 2", "3"],
-      rhythms44: ["1 1 1 1", "2 1 1", "1 1 2", "2 2", "4", "1 2 1", "3 1", "1 3"],
+      rhythms44: ["1 1 1 1", "2 1 1", "1 1 2", "2 2", "4", "3 1", "1 3"],
       restChance: 0, allowSyncopation: false,
     }
   };
@@ -1716,7 +1716,7 @@
   // 17. SCORE HISTORY (localStorage)
   // ==========================================================
 
-  const SCORE_HISTORY_KEY = "sightreading-score-history";
+  const SCORE_HISTORY_KEY = "sightreading-score-history-year1-level3";
 
   function escHtml(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -1809,10 +1809,12 @@
     seedPRNG(dateStr);
     lastUsedSeed = dateStr;
 
-    // Pick settings deterministically from the seed
+    // Pick settings deterministically from the seed. Difficulty and meter
+    // are pulled from the level's DOM options so the daily challenge stays
+    // inside what this level allows; keys come from the level's KEY_DEFS.
     const keys = Object.keys(KEY_DEFS);
-    const diffs = ["easy", "medium", "hard"];
-    const meters = ["4/4", "3/4"];
+    const diffs = Array.from(document.getElementById("difficultySelect").options).map(o => o.value);
+    const meters = Array.from(document.getElementById("meterSelect").options).map(o => o.value);
     const measureOpts = [4, 8];
     const bpmOpts = [50, 60, 70, 80];
 

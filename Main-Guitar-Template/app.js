@@ -1632,7 +1632,7 @@
       // Advance audio so the perceived attack lands on the beat
       // (samples have pre-transient silence + decode/playback latency)
       if (!note.isRest && note.midi != null) {
-        scheduleNote(note.midi, noteStart - 0.12, note.duration * 0.9, playbackCtx, sampleGain);
+        scheduleNote(note.midi, noteStart - 0.09, note.duration * 0.9, playbackCtx, sampleGain);
       }
 
       // Schedule visual highlight

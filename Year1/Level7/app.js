@@ -291,12 +291,30 @@
     return String(Math.round(eighths));
   }
 
+  function buildKeySigAccState(keyDef) {
+    const state = {};
+    const names = keyDef.usesFlats ? FLAT_NAMES : NOTE_NAMES;
+    const scalePCs = new Set(keyDef.allowedPitches.map(p => ((p % 12) + 12) % 12));
+    for (let midi = RANGE_LOW; midi <= RANGE_HIGH; midi++) {
+      const pc = ((midi % 12) + 12) % 12;
+      if (!scalePCs.has(pc)) continue;
+      const name = names[pc];
+      const rawBase = name.replace(/[\^_=]/g, "");
+      const acc = name.replace(rawBase, "");
+      if (acc === "") continue;
+      const noteAbc = midiToAbc(midi, keyDef);
+      const base = /^[\^_=]/.test(noteAbc) ? noteAbc.slice(1) : noteAbc;
+      state[base] = acc;
+    }
+    return state;
+  }
+
   function melodyToAbc(measures, keyDef, meter) {
-    let abc = "X:1\nM:" + meter + "\nL:1/8\n%%stretchlast true\nK:C\n";
+    let abc = "X:1\nM:" + meter + "\nL:1/8\n%%stretchlast true\nK:Eb\n";
 
     for (let i = 0; i < measures.length; i++) {
       const measure = measures[i];
-      const accState = {};
+      const accState = buildKeySigAccState(keyDef);
       let beatPos = 0;
 
       for (let j = 0; j < measure.length; j++) {
@@ -1435,6 +1453,9 @@
     75: "audio/Ds2-Eb2.wav",     // D#5/Eb5
     76: "audio/E2.wav",          // E5
     77: "audio/F2.mp3",          // F5
+    78: "audio/Fs2-Gb2.wav",     // F#5/Gb5
+    79: "audio/G2.wav",          // G5
+    80: "audio/Gs2-Ab2.wav",     // G#5/Ab5
   };
 
   const sampleBuffers = {};

@@ -1437,6 +1437,9 @@
     75: "audio/Ds2-Eb2.wav",     // D#5/Eb5
     76: "audio/E2.wav",          // E5
     77: "audio/F2.mp3",          // F5
+    78: "audio/Fs2-Gb2.wav",      // F#5/Gb5
+    79: "audio/G2.wav",          // G5
+    80: "audio/Gs2-Ab2.wav",      // G#5/Ab5
   };
 
   const sampleBuffers = {};

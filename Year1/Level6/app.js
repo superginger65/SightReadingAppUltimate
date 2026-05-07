@@ -100,9 +100,9 @@
   // Levels 2-7 — 3/4 + 4/4, quarter + half + dotted half + whole (no 8ths)
   const DIFFICULTY = {
     level: {
-      maxInterval: 4, stepBias: 0.55,
+      maxInterval: 3, stepBias: 0.55,
       rhythms34: ["1 1 1", "2 1", "1 2", "3"],
-      rhythms44: ["1 1 1 1", "2 1 1", "1 1 2", "2 2", "4", "3 1", "1 3"],
+      rhythms44: ["1 1 1 1", "2 1 1", "1 1 2", "2 2", "3 1", "1 3"],
       restChance: 0, allowSyncopation: false,
     }
   };

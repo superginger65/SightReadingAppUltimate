@@ -16,7 +16,7 @@
   // Level 5 — A minor (A3–F5) and G minor (D4–G5)
   const KEY_DEFS = {
     "Am": { tonic: 57, mode: "minor", abcKey: "Am", usesFlats: false,
-            allowedPitches: [57, 59, 60, 62, 64, 65, 68, 69, 71, 72, 74, 76, 77] },
+            allowedPitches: [62, 64, 65, 68, 69, 71, 72, 74, 76, 77] },
     "Gm": { tonic: 55, mode: "minor", abcKey: "Gm", usesFlats: true,
             allowedPitches: [62, 63, 65, 66, 67, 69, 70, 72, 74, 75, 77, 78, 79] },
   };
@@ -289,6 +289,7 @@
     const octave = Math.floor(midi / 12) - 1;
     const names = keyDef.usesFlats ? FLAT_NAMES : NOTE_NAMES;
     let name = names[noteIndex];
+    if (isRaised7th(midi, keyDef)) name = NOTE_NAMES[noteIndex];
     let baseLetter = name.replace(/[\^_=]/g, "");
     let accidental = name.replace(baseLetter, "");
     if (octave >= 5) {

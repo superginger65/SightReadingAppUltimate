@@ -289,6 +289,7 @@
     const octave = Math.floor(midi / 12) - 1;
     const names = keyDef.usesFlats ? FLAT_NAMES : NOTE_NAMES;
     let name = names[noteIndex];
+    if (isRaised7th(midi, keyDef)) name = NOTE_NAMES[noteIndex];
     let baseLetter = name.replace(/[\^_=]/g, "");
     let accidental = name.replace(baseLetter, "");
     if (octave >= 5) {

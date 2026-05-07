@@ -243,7 +243,9 @@
           notes.push({ pitch: tonicNear, duration: dur, isRest: false });
           currentPitch = tonicNear;
         } else {
-          if (seededRandom() < profile.restChance && beatPos > 0) {
+          if (m === 0 && n === 0) {
+            notes.push({ pitch: currentPitch, duration: dur, isRest: false });
+          } else if (seededRandom() < profile.restChance && beatPos > 0) {
             notes.push({ pitch: null, duration: dur, isRest: true });
           } else {
             const nextPitch = pickNextPitch(currentPitch, prevInterval, scalePitches, keyDef, difficulty, beatStrength);

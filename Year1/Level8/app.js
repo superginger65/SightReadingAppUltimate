@@ -271,7 +271,25 @@
           notes.push({ pitch: tonicNear, duration: dur, isRest: false });
           currentPitch = tonicNear;
         } else {
-          if (seededRandom() < profile.restChance && beatPos > 0) {
+          if (m === numMeasures - 2 && n === rhythm.length - 1) {
+            const finalTonic = tonicPitches.reduce((a, b) =>
+              Math.abs(b - currentPitch) < Math.abs(a - currentPitch) ? b : a
+            );
+            const candidates = scalePitches.filter(p => {
+              const deg = scaleDegree(p, keyDef);
+              if (deg === 6) return p < finalTonic;
+              if (deg === 1) return p > finalTonic;
+              if (deg === 2) return p > finalTonic;
+              if (deg === 4) return p < finalTonic;
+              return false;
+            });
+            const penult = candidates.length > 0
+              ? candidates.reduce((a, b) => Math.abs(b - currentPitch) < Math.abs(a - currentPitch) ? b : a)
+              : currentPitch;
+            prevInterval = scalePitches.indexOf(penult) - scalePitches.indexOf(currentPitch);
+            currentPitch = penult;
+            notes.push({ pitch: penult, duration: dur, isRest: false });
+          } else if (seededRandom() < profile.restChance && beatPos > 0) {
             notes.push({ pitch: null, duration: dur, isRest: true });
           } else {
             const nextPitch = pickNextPitch(currentPitch, prevInterval, scalePitches, keyDef, difficulty, beatStrength);

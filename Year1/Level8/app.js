@@ -31,6 +31,16 @@
             allowedPitches: [62, 63, 65, 66, 67, 69, 70, 72, 74, 75, 77, 78, 79] },
   };
 
+  const KEY_SIG_ACCIDENTALS = {
+    "C":  {},
+    "G":  { F: "^" },
+    "D":  { F: "^", C: "^" },
+    "F":  { B: "_" },
+    "Am": {},
+    "Dm": { B: "_" },
+    "Gm": { B: "_", E: "_" },
+  };
+
   const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
   const MINOR_SCALE = [0, 2, 3, 5, 7, 8, 10];
 
@@ -178,7 +188,7 @@
         weight *= (pitch < prevPitch) ? 0.05 : 1.5;
       }
       if (isRaised7th(prevPitch, keyDef)) {
-        weight *= (pitch === prevPitch + 1) ? 5.0 : 0.1;
+        if (pitch !== prevPitch + 1) { weight = 0; continue; }
       }
 
       candidates.push({ pitch, weight });
@@ -229,6 +239,55 @@
       attempts++;
     }
     return Array(beatsPerMeasure).fill(1);
+  }
+
+  function fixRests(measures, beatsPerMeasure) {
+    for (const measure of measures) {
+      for (let i = 0; i < measure.length; i++) {
+        if (measure[i].isRest && measure[i].duration === 3) {
+          measure.splice(i, 1,
+            { pitch: null, duration: 1, isRest: true },
+            { pitch: null, duration: 2, isRest: true }
+          );
+        }
+      }
+
+      if (beatsPerMeasure === 3) {
+        for (let i = 0; i < measure.length; i++) {
+          if (measure[i].isRest && measure[i].duration === 2) {
+            measure.splice(i, 1,
+              { pitch: null, duration: 1, isRest: true },
+              { pitch: null, duration: 1, isRest: true }
+            );
+          }
+        }
+      }
+
+      if (beatsPerMeasure === 4) {
+        let beatPos = 0;
+        for (let i = 0; i < measure.length; i++) {
+          if (measure[i].isRest && measure[i].duration === 2 && beatPos !== 0 && beatPos !== 2) {
+            measure.splice(i, 1,
+              { pitch: null, duration: 1, isRest: true },
+              { pitch: null, duration: 1, isRest: true }
+            );
+          }
+          beatPos += measure[i].duration;
+        }
+
+        beatPos = 0;
+        for (let i = 0; i < measure.length - 1; i++) {
+          if (measure[i].isRest && measure[i].duration === 1 &&
+              measure[i + 1].isRest && measure[i + 1].duration === 1 &&
+              (beatPos === 0 || beatPos === 2)) {
+            measure.splice(i, 2,
+              { pitch: null, duration: 2, isRest: true }
+            );
+          }
+          beatPos += measure[i].duration;
+        }
+      }
+    }
   }
 
   // ==========================================================
@@ -303,6 +362,7 @@
       measures.push(notes);
     }
 
+    fixRests(measures, beatsPerMeasure);
     return measures;
   }
 
@@ -341,7 +401,8 @@
   }
 
   function melodyToAbc(measures, keyDef, meter) {
-    let abc = "X:1\nM:" + meter + "\nL:1/8\n%%stretchlast true\nK:C\n";
+    const keySig = KEY_SIG_ACCIDENTALS[keyDef.abcKey] || {};
+    let abc = "X:1\nM:" + meter + "\nL:1/8\n%%stretchlast true\nK:" + keyDef.abcKey + "\n";
 
     for (let i = 0; i < measures.length; i++) {
       const measure = measures[i];
@@ -357,7 +418,8 @@
           let acc = "";
           let base = noteAbc;
           if (/^[\^_=]/.test(noteAbc)) { acc = noteAbc[0]; base = noteAbc.slice(1); }
-          const cur = accState[base] || "";
+          const letter = base.replace(/[,']/g, "").toUpperCase();
+          const cur = (base in accState) ? accState[base] : (keySig[letter] || "");
           if (acc === cur) noteAbc = base;
           else if (acc === "" && cur !== "") { noteAbc = "=" + base; accState[base] = ""; }
           else accState[base] = acc;
@@ -1947,6 +2009,7 @@
 
   // Wire up
   document.getElementById("generateBtn").addEventListener("click", generate);
+  document.getElementById("keySelect").addEventListener("change", generate);
   const _dailyBtn = document.getElementById("dailyChallengeBtn");
   if (_dailyBtn) _dailyBtn.addEventListener("click", dailyChallenge);
   document.getElementById("playBtn").addEventListener("click", function () {

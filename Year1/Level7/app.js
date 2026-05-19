@@ -148,7 +148,7 @@
         weight *= (pitch < prevPitch) ? 0.05 : 1.5;
       }
       if (isRaised7th(prevPitch, keyDef)) {
-        weight *= (pitch === prevPitch + 1) ? 5.0 : 0.1;
+        if (pitch !== prevPitch + 1) { weight = 0; continue; }
       }
 
       candidates.push({ pitch, weight });
@@ -199,6 +199,55 @@
       attempts++;
     }
     return Array(beatsPerMeasure).fill(1);
+  }
+
+  function fixRests(measures, beatsPerMeasure) {
+    for (const measure of measures) {
+      for (let i = 0; i < measure.length; i++) {
+        if (measure[i].isRest && measure[i].duration === 3) {
+          measure.splice(i, 1,
+            { pitch: null, duration: 1, isRest: true },
+            { pitch: null, duration: 2, isRest: true }
+          );
+        }
+      }
+
+      if (beatsPerMeasure === 3) {
+        for (let i = 0; i < measure.length; i++) {
+          if (measure[i].isRest && measure[i].duration === 2) {
+            measure.splice(i, 1,
+              { pitch: null, duration: 1, isRest: true },
+              { pitch: null, duration: 1, isRest: true }
+            );
+          }
+        }
+      }
+
+      if (beatsPerMeasure === 4) {
+        let beatPos = 0;
+        for (let i = 0; i < measure.length; i++) {
+          if (measure[i].isRest && measure[i].duration === 2 && beatPos !== 0 && beatPos !== 2) {
+            measure.splice(i, 1,
+              { pitch: null, duration: 1, isRest: true },
+              { pitch: null, duration: 1, isRest: true }
+            );
+          }
+          beatPos += measure[i].duration;
+        }
+
+        beatPos = 0;
+        for (let i = 0; i < measure.length - 1; i++) {
+          if (measure[i].isRest && measure[i].duration === 1 &&
+              measure[i + 1].isRest && measure[i + 1].duration === 1 &&
+              (beatPos === 0 || beatPos === 2)) {
+            measure.splice(i, 2,
+              { pitch: null, duration: 2, isRest: true }
+            );
+          }
+          beatPos += measure[i].duration;
+        }
+      }
+    }
   }
 
   // ==========================================================
@@ -275,6 +324,7 @@
       measures.push(notes);
     }
 
+    fixRests(measures, beatsPerMeasure);
     return measures;
   }
 
@@ -1936,6 +1986,7 @@
 
   // Wire up
   document.getElementById("generateBtn").addEventListener("click", generate);
+  document.getElementById("keySelect").addEventListener("change", generate);
   const _dailyBtn = document.getElementById("dailyChallengeBtn");
   if (_dailyBtn) _dailyBtn.addEventListener("click", dailyChallenge);
   document.getElementById("playBtn").addEventListener("click", function () {

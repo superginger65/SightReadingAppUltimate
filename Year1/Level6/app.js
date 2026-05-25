@@ -18,7 +18,7 @@
     "F":  { tonic: 53, mode: "major", abcKey: "F",  usesFlats: true,
             allowedPitches: [62, 64, 65, 67, 69, 70, 72, 74, 76, 77, 79] },
     "Dm": { tonic: 62, mode: "minor", abcKey: "Dm", usesFlats: true,
-            allowedPitches: [62, 64, 65, 67, 69, 70, 72, 73, 74, 76, 77, 79] },
+            allowedPitches: [62, 64, 65, 67, 69, 70, 73, 74, 76, 77, 79] },
   };
 
   const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];

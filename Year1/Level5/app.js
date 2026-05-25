@@ -18,7 +18,7 @@
     "Am": { tonic: 57, mode: "minor", abcKey: "Am", usesFlats: false,
             allowedPitches: [62, 64, 65, 68, 69, 71, 72, 74, 76, 77] },
     "Gm": { tonic: 55, mode: "minor", abcKey: "Gm", usesFlats: true,
-            allowedPitches: [62, 63, 65, 66, 67, 69, 70, 72, 74, 75, 77, 78, 79] },
+            allowedPitches: [62, 63, 66, 67, 69, 70, 72, 74, 75, 78, 79] },
   };
 
   const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];

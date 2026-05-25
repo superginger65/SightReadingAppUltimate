@@ -24,11 +24,11 @@
     "F":  { tonic: 53, mode: "major", abcKey: "F",  usesFlats: true,
             allowedPitches: [62, 64, 65, 67, 69, 70, 72, 74, 76, 77, 79] },
     "Am": { tonic: 57, mode: "minor", abcKey: "Am", usesFlats: false,
-            allowedPitches: [57, 59, 60, 62, 64, 65, 67, 68, 69, 71, 72, 74, 76, 77] },
+            allowedPitches: [57, 59, 60, 62, 64, 65, 68, 69, 71, 72, 74, 76, 77] },
     "Dm": { tonic: 62, mode: "minor", abcKey: "Dm", usesFlats: true,
-            allowedPitches: [57, 58, 60, 61, 62, 64, 65, 67, 69, 70, 72, 73, 74, 76, 77, 79] },
+            allowedPitches: [57, 58, 61, 62, 64, 65, 67, 69, 70, 73, 74, 76, 77, 79] },
     "Gm": { tonic: 55, mode: "minor", abcKey: "Gm", usesFlats: true,
-            allowedPitches: [62, 63, 65, 66, 67, 69, 70, 72, 74, 75, 77, 78, 79] },
+            allowedPitches: [62, 63, 66, 67, 69, 70, 72, 74, 75, 78, 79] },
   };
 
   const KEY_SIG_ACCIDENTALS = {

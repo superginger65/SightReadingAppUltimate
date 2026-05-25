@@ -16,9 +16,9 @@
   // Level 4 — G major & D major, range D4–G5
   const KEY_DEFS = {
     "G": { tonic: 55, mode: "major", abcKey: "G", usesFlats: false,
-           allowedPitches: [62, 64, 66, 67, 69, 71, 72, 74, 76, 78, 79] },
+           allowedPitches: [62, 67, 69, 71, 72, 74, 76, 78, 79] },
     "D": { tonic: 62, mode: "major", abcKey: "D", usesFlats: false,
-           allowedPitches: [62, 64, 66, 67, 69, 71, 73, 74, 76, 78, 79] },
+           allowedPitches: [62, 67, 69, 71, 73, 74, 76, 78, 79] },
   };
 
   const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];

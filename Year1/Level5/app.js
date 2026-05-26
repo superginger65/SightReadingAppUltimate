@@ -16,9 +16,11 @@
   // Level 5 — A minor (A3–F5) and G minor (D4–G5)
   const KEY_DEFS = {
     "Am": { tonic: 57, mode: "minor", abcKey: "Am", usesFlats: false,
-            allowedPitches: [62, 68, 69, 71, 72, 74, 76, 77] },
+            allowedPitches: [62, 68, 69, 71, 72, 74, 76, 77],
+            pitchBoost: { 68: 2.5, 71: 2.5, 76: 2.5, 77: 2.5 } },
     "Gm": { tonic: 55, mode: "minor", abcKey: "Gm", usesFlats: true,
-            allowedPitches: [62, 67, 69, 70, 72, 74, 75, 78, 79] },
+            allowedPitches: [62, 67, 69, 70, 72, 74, 75, 78, 79],
+            pitchBoost: { 67: 2.0, 70: 2.5, 75: 2.5, 78: 2.5, 79: 2.0 } },
   };
 
   const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
@@ -151,6 +153,10 @@
       }
       if (isRaised7th(prevPitch, keyDef)) {
         if (pitch !== prevPitch + 1) { weight = 0; continue; }
+      }
+
+      if (keyDef.pitchBoost && keyDef.pitchBoost[pitch]) {
+        weight *= keyDef.pitchBoost[pitch];
       }
 
       candidates.push({ pitch, weight });

@@ -247,7 +247,40 @@ button:disabled {
   margin-left: 4px;
 }
 
-/* ---------- Responsive ---------- */
+/* ---------- Responsive – tablet ---------- */
+@media (max-width: 1024px) and (min-width: 601px) {
+  .container {
+    padding: 14px 20px;
+  }
+
+  .controls {
+    margin-bottom: 8px;
+  }
+
+  .control-row {
+    margin-bottom: 8px;
+  }
+
+  .status {
+    min-height: 22px;
+    margin-bottom: 4px;
+  }
+
+  #notation {
+    margin-top: 2px;
+    min-height: 0;
+  }
+
+  #notation svg {
+    display: block;
+  }
+
+  .mode-switch-container {
+    margin: 6px 0 6px;
+  }
+}
+
+/* ---------- Responsive – mobile ---------- */
 @media (max-width: 600px) {
   .container {
     padding: 10px 14px;

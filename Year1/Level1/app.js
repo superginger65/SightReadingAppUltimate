@@ -462,7 +462,7 @@
       responsive: "resize",
       staffwidth: 900,
       wrap: { minSpacing: 1.5, maxSpacing: 2.8, preferredMeasuresPerLine: 4 },
-      paddingtop: 10, paddingbottom: 20, paddingleft: 20, paddingright: 20,
+      paddingtop: 10, paddingbottom: (window.innerWidth <= 600 ? 5 : 20), paddingleft: 20, paddingright: 20,
       scale: 1.3,
       add_classes: true,
     });

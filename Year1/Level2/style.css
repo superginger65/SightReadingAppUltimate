@@ -250,11 +250,30 @@ button:disabled {
 /* ---------- Responsive ---------- */
 @media (max-width: 600px) {
   .container {
-    padding: 14px;
+    padding: 10px 14px;
+  }
+
+  .controls {
+    margin-bottom: 4px;
   }
 
   .control-row {
     align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .status {
+    min-height: 20px;
+    margin-bottom: 2px;
+  }
+
+  #notation {
+    margin-top: 0;
+    min-height: 80px;
+  }
+
+  .mode-switch-container {
+    margin: 6px 0 4px;
   }
 
   button {

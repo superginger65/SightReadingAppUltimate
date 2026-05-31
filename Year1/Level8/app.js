@@ -221,9 +221,12 @@
     });
   }
 
-  function generateMeasureRhythm(beatsPerMeasure, diff) {
+  function generateMeasureRhythm(beatsPerMeasure, diff, isFirstMeasure) {
     const profile = DIFFICULTY[diff];
-    const rhythmPool = beatsPerMeasure === 3 ? profile.rhythms34 : profile.rhythms44;
+    let rhythmPool = beatsPerMeasure === 3 ? profile.rhythms34 : profile.rhythms44;
+    if (beatsPerMeasure === 3 && !isFirstMeasure) {
+      rhythmPool = rhythmPool.filter(p => p !== "3");
+    }
     const target = beatsPerMeasure;
     let attempts = 0;
     while (attempts < 50) {
@@ -313,7 +316,7 @@
       const isLast = m === numMeasures - 1;
       const rhythm = isLast
         ? [beatsPerMeasure]
-        : generateMeasureRhythm(beatsPerMeasure, difficulty);
+        : generateMeasureRhythm(beatsPerMeasure, difficulty, m === 0);
 
       const notes = [];
       let beatPos = 0;
@@ -2010,6 +2013,10 @@
   // Wire up
   document.getElementById("generateBtn").addEventListener("click", generate);
   document.getElementById("keySelect").addEventListener("change", generate);
+  document.getElementById("meterSelect").addEventListener("change", generate);
+  document.getElementById("difficultySelect").addEventListener("change", generate);
+  document.getElementById("measuresSelect").addEventListener("change", generate);
+  document.getElementById("bpmSelect").addEventListener("change", generate);
   const _dailyBtn = document.getElementById("dailyChallengeBtn");
   if (_dailyBtn) _dailyBtn.addEventListener("click", dailyChallenge);
   document.getElementById("playBtn").addEventListener("click", function () {
@@ -2024,12 +2031,6 @@
   document.getElementById("historyCloseBtn").addEventListener("click", hideHistory);
   document.getElementById("historyModal").addEventListener("click", function (e) {
     if (e.target === this) hideHistory();
-  });
-  document.getElementById("bpmSelect").addEventListener("change", function () {
-    currentBpm = parseInt(this.value, 10);
-    if (currentMeasures && currentMeter) {
-      currentExpectedNotes = buildExpectedNotes(currentMeasures, currentBpm, currentMeter);
-    }
   });
   document.getElementById("selectPractice").addEventListener("click", function () { selectMode("practice"); });
   document.getElementById("selectChallenge").addEventListener("click", function () { selectMode("challenge"); });

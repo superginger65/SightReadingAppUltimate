@@ -17,10 +17,10 @@
   const KEY_DEFS = {
     "Am": { tonic: 57, mode: "minor", abcKey: "Am", usesFlats: false,
             allowedPitches: [62, 68, 69, 71, 72, 74, 76, 77],
-            pitchBoost: { 68: 2.5, 71: 2.5, 76: 2.5, 77: 2.5 } },
+            pitchBoost: { 68: 2.5, 71: 2.5, 76: 5, 77: 5 } },
     "Gm": { tonic: 55, mode: "minor", abcKey: "Gm", usesFlats: true,
-            allowedPitches: [62, 67, 69, 70, 72, 74, 75, 78, 79],
-            pitchBoost: { 67: 2.0, 70: 2.5, 75: 2.5, 78: 2.5, 79: 2.0 } },
+            allowedPitches: [62, 67, 69, 70, 72, 74, 76, 78, 79],
+            pitchBoost: { 76: 7, 78: 7, 79: 7 } },
   };
 
   const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
@@ -189,9 +189,12 @@
     });
   }
 
-  function generateMeasureRhythm(beatsPerMeasure, diff) {
+  function generateMeasureRhythm(beatsPerMeasure, diff, isFirstMeasure) {
     const profile = DIFFICULTY[diff];
-    const rhythmPool = beatsPerMeasure === 3 ? profile.rhythms34 : profile.rhythms44;
+    let rhythmPool = beatsPerMeasure === 3 ? profile.rhythms34 : profile.rhythms44;
+    if (beatsPerMeasure === 3 && !isFirstMeasure) {
+      rhythmPool = rhythmPool.filter(p => p !== "3");
+    }
     const target = beatsPerMeasure;
     let attempts = 0;
     while (attempts < 50) {
@@ -281,7 +284,7 @@
       const isLast = m === numMeasures - 1;
       const rhythm = isLast
         ? [beatsPerMeasure]
-        : generateMeasureRhythm(beatsPerMeasure, difficulty);
+        : generateMeasureRhythm(beatsPerMeasure, difficulty, m === 0);
 
       const notes = [];
       let beatPos = 0;
@@ -1978,6 +1981,10 @@
   // Wire up
   document.getElementById("generateBtn").addEventListener("click", generate);
   document.getElementById("keySelect").addEventListener("change", generate);
+  document.getElementById("meterSelect").addEventListener("change", generate);
+  document.getElementById("difficultySelect").addEventListener("change", generate);
+  document.getElementById("measuresSelect").addEventListener("change", generate);
+  document.getElementById("bpmSelect").addEventListener("change", generate);
   const _dailyBtn = document.getElementById("dailyChallengeBtn");
   if (_dailyBtn) _dailyBtn.addEventListener("click", dailyChallenge);
   document.getElementById("playBtn").addEventListener("click", function () {
@@ -1992,12 +1999,6 @@
   document.getElementById("historyCloseBtn").addEventListener("click", hideHistory);
   document.getElementById("historyModal").addEventListener("click", function (e) {
     if (e.target === this) hideHistory();
-  });
-  document.getElementById("bpmSelect").addEventListener("change", function () {
-    currentBpm = parseInt(this.value, 10);
-    if (currentMeasures && currentMeter) {
-      currentExpectedNotes = buildExpectedNotes(currentMeasures, currentBpm, currentMeter);
-    }
   });
   document.getElementById("selectPractice").addEventListener("click", function () { selectMode("practice"); });
   document.getElementById("selectChallenge").addEventListener("click", function () { selectMode("challenge"); });

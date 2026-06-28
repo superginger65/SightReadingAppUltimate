@@ -45,7 +45,7 @@
     "Am": {
       4: [["Am"],      ["E", "Bo"], ["E", "E7"], ["Am"]],
       8: [["Am"],      ["E", "Bo"], ["Am"],      ["E", "E7"],
-          ["Am"],      ["F", "Dm"], ["Am", "E"], ["Am"]],
+          ["Am"],      ["F", "Dm"], ["Am", "E", "E7"], ["Am"]],
     },
   };
 
@@ -175,7 +175,67 @@
         const keyDef = KEY_DEFS[keyName];
         const tonicPC = keyDef.tonic % 12;
         const tonicPitch = RANGE_LOW + ((tonicPC - RANGE_LOW % 12) + 12) % 12;
-        measures.push([{ pitch: tonicPitch, duration: 2, isRest: false }]);
+        const str4 = chord[0], str3 = chord[1], str2 = chord[2];
+        const pattern = Math.floor(seededRandom() * 7);
+        let finalNotes;
+        switch (pattern) {
+          case 0: // ESS + Q on str2 (always tied: last ESS note = str2 = Q pitch)
+            finalNotes = [
+              { pitch: str4, duration: 0.5, isRest: false },
+              { pitch: str3, duration: 0.25, isRest: false },
+              { pitch: str2, duration: 0.25, isRest: false, tie: true },
+              { pitch: str2, duration: 1.0, isRest: false },
+            ];
+            break;
+          case 1: // ESS + Q on tonic (tied when tonic = str2)
+            finalNotes = [
+              { pitch: str4, duration: 0.5, isRest: false },
+              { pitch: str3, duration: 0.25, isRest: false },
+              { pitch: str2, duration: 0.25, isRest: false, tie: str2 === tonicPitch },
+              { pitch: tonicPitch, duration: 1.0, isRest: false },
+            ];
+            break;
+          case 2: // SSSS + Q on str2 (no tie: last SSSS note = str3 ≠ str2)
+            finalNotes = [
+              { pitch: str4, duration: 0.25, isRest: false },
+              { pitch: str3, duration: 0.25, isRest: false },
+              { pitch: str2, duration: 0.25, isRest: false },
+              { pitch: str3, duration: 0.25, isRest: false },
+              { pitch: str2, duration: 1.0, isRest: false },
+            ];
+            break;
+          case 3: // SSSS + Q on tonic (tied when tonic = str3)
+            finalNotes = [
+              { pitch: str4, duration: 0.25, isRest: false },
+              { pitch: str3, duration: 0.25, isRest: false },
+              { pitch: str2, duration: 0.25, isRest: false },
+              { pitch: str3, duration: 0.25, isRest: false, tie: str3 === tonicPitch },
+              { pitch: tonicPitch, duration: 1.0, isRest: false },
+            ];
+            break;
+          case 4: // Full measure of 16th arpeggiation on tonic chord
+            finalNotes = [
+              { pitch: str4, duration: 0.25, isRest: false },
+              { pitch: str3, duration: 0.25, isRest: false },
+              { pitch: str2, duration: 0.25, isRest: false },
+              { pitch: str3, duration: 0.25, isRest: false },
+              { pitch: str4, duration: 0.25, isRest: false },
+              { pitch: str3, duration: 0.25, isRest: false },
+              { pitch: str2, duration: 0.25, isRest: false },
+              { pitch: str3, duration: 0.25, isRest: false },
+            ];
+            break;
+          case 5: // Half note on tonic
+            finalNotes = [{ pitch: tonicPitch, duration: 2, isRest: false }];
+            break;
+          case 6: // Q on bass (str4) + Q on tonic
+            finalNotes = [
+              { pitch: str4, duration: 1.0, isRest: false },
+              { pitch: tonicPitch, duration: 1.0, isRest: false },
+            ];
+            break;
+        }
+        measures.push(finalNotes);
         continue;
       }
 
@@ -252,6 +312,7 @@
           else if (acc === "" && cur !== "") { noteAbc = "=" + base; accState[base] = ""; }
           else accState[base] = acc;
           abc += noteAbc + durationToAbc(note.duration);
+          if (note.tie) abc += "-";
         }
 
         // Beaming: no space within a beat, space between beats
@@ -284,10 +345,12 @@
     const secPerBeat = 60 / bpm;
     const notes = [];
     let time = 0;
+    let prevTied = false;
 
     for (const measure of measures) {
       for (const note of measure) {
         if (note.isRest) {
+          prevTied = false;
           notes.push({
             isRest: true,
             midi: null,
@@ -297,13 +360,20 @@
             quarterBeats: note.duration,
           });
         } else if (note.pitch != null) {
-          notes.push({
-            midi: note.pitch,
-            name: midiToNoteName(note.pitch),
-            startTime: time,
-            duration: note.duration * secPerBeat,
-            quarterBeats: note.duration,
-          });
+          const prev = notes.length > 0 ? notes[notes.length - 1] : null;
+          if (prevTied && prev && !prev.isRest && prev.midi === note.pitch) {
+            prev.duration += note.duration * secPerBeat;
+            prev.quarterBeats += note.duration;
+          } else {
+            notes.push({
+              midi: note.pitch,
+              name: midiToNoteName(note.pitch),
+              startTime: time,
+              duration: note.duration * secPerBeat,
+              quarterBeats: note.duration,
+            });
+          }
+          prevTied = !!note.tie;
         }
         time += note.duration * secPerBeat;
       }
@@ -313,15 +383,21 @@
 
   // Global index counter so ABCjs note classes line up with our expectedNotes
   function buildNoteIndexMap(measures) {
-    // Returns a flat array index for each non-rest note, and -1 for rests
     const map = [];
     let idx = 0;
+    let prevTied = false;
     for (const measure of measures) {
       for (const note of measure) {
         if (!note.isRest && note.pitch != null) {
-          map.push(idx++);
+          if (prevTied) {
+            map.push(map[map.length - 1]);
+          } else {
+            map.push(idx++);
+          }
+          prevTied = !!note.tie;
         } else {
           map.push(-1);
+          prevTied = false;
         }
       }
     }

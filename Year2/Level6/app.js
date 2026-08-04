@@ -25,7 +25,7 @@
     "Am": { tonic: 57, mode: "minor", abcKey: "Am", usesFlats: false,
             allowedPitches: [57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79],
             startPitches: [57, 64, 69],
-            endPitches: [60, 72],
+            endPitches: [57, 69],
             vChordPCs: [2, 4, 7, 11] },
   };
 

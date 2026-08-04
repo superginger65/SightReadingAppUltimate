@@ -160,8 +160,10 @@
         else if (deg === 2) weight *= 1.2;
       }
 
-      const mid = (RANGE_LOW + RANGE_HIGH) / 2;
+      // Bias toward lower register: center gravity below midpoint
+      const mid = RANGE_LOW + (RANGE_HIGH - RANGE_LOW) * 0.35;
       weight *= Math.max(0.3, 1 - Math.abs(pitch - mid) / 20);
+      if (pitch < mid) weight *= 1.4;
 
       // Leading-tone approach: favor approaching raised 7th from below
       if (isRaised7th(pitch, keyDef)) {

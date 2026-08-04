@@ -1283,6 +1283,15 @@
     document.getElementById("playBtn").disabled = false;
   }
 
+  function onBpmChange() {
+    currentBpm = parseInt(document.getElementById("bpmSelect").value, 10);
+    if (currentMeasures) {
+      currentExpectedNotes = buildExpectedNotes(currentMeasures, currentBpm, currentMeter);
+    }
+    stopPlayback();
+    clearAttempts();
+  }
+
   let recordingTimeouts = [];   // setTimeout IDs for recording flow
   let recordingInterval = null;  // countdown interval
   let recordingActive = false;   // true from click to scoring complete
@@ -1993,7 +2002,7 @@
   document.getElementById("meterSelect").addEventListener("change", generate);
   document.getElementById("difficultySelect").addEventListener("change", generate);
   document.getElementById("measuresSelect").addEventListener("change", generate);
-  document.getElementById("bpmSelect").addEventListener("change", generate);
+  document.getElementById("bpmSelect").addEventListener("change", onBpmChange);
   const _dailyBtn = document.getElementById("dailyChallengeBtn");
   if (_dailyBtn) _dailyBtn.addEventListener("click", dailyChallenge);
   document.getElementById("playBtn").addEventListener("click", function () {

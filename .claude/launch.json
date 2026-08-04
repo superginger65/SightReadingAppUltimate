@@ -24,5 +24,13 @@
       "port": 8767,
       "url": "http://localhost:8767"
     }
+    ,
+    {
+      "name": "year2-level6",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "$listener = New-Object System.Net.HttpListener; $listener.Prefixes.Add('http://localhost:8770/'); $listener.Start(); Write-Host 'Listening on 8770'; while($true) { $ctx = $listener.GetContext(); $req = $ctx.Request; $resp = $ctx.Response; $path = $req.Url.LocalPath; if($path -eq '/') { $path = '/index.html' }; $file = Join-Path 'Year2/Level6' $path.TrimStart('/'); if(Test-Path $file) { $bytes = [System.IO.File]::ReadAllBytes($file); $ext = [System.IO.Path]::GetExtension($file); $ct = switch($ext) { '.html'{'text/html'} '.js'{'application/javascript'} '.css'{'text/css'} '.mp3'{'audio/mpeg'} '.wav'{'audio/wav'} default{'application/octet-stream'} }; $resp.ContentType = $ct; $resp.Headers.Add('Cache-Control','no-store'); $resp.ContentLength64 = $bytes.Length; $resp.OutputStream.Write($bytes, 0, $bytes.Length) } else { $resp.StatusCode = 404 }; $resp.Close() }"],
+      "port": 8770,
+      "url": "http://localhost:8770"
+    }
   ]
 }

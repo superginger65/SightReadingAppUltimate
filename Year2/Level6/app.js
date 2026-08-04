@@ -19,7 +19,7 @@
   const KEY_DEFS = {
     "C":  { tonic: 60, mode: "major", abcKey: "C",  usesFlats: false,
             allowedPitches: [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79],
-            startPitches: [60, 67, 72],
+            startPitches: [60, 72],
             endPitches: [60, 72],
             vChordPCs: [7, 11, 2] },
     "Am": { tonic: 57, mode: "minor", abcKey: "Am", usesFlats: false,

@@ -8,5 +8,21 @@
       "port": 8765,
       "url": "http://localhost:8765"
     }
+    ,
+    {
+      "name": "year2-level2",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "$listener = New-Object System.Net.HttpListener; $listener.Prefixes.Add('http://localhost:8766/'); $listener.Start(); Write-Host 'Listening on 8766'; while($true) { $ctx = $listener.GetContext(); $req = $ctx.Request; $resp = $ctx.Response; $path = $req.Url.LocalPath; if($path -eq '/') { $path = '/index.html' }; $file = Join-Path 'Year2/Level2' $path.TrimStart('/'); if(Test-Path $file) { $bytes = [System.IO.File]::ReadAllBytes($file); $ext = [System.IO.Path]::GetExtension($file); $ct = switch($ext) { '.html'{'text/html'} '.js'{'application/javascript'} '.css'{'text/css'} '.mp3'{'audio/mpeg'} '.wav'{'audio/wav'} default{'application/octet-stream'} }; $resp.ContentType = $ct; $resp.Headers.Add('Cache-Control','no-store'); $resp.ContentLength64 = $bytes.Length; $resp.OutputStream.Write($bytes, 0, $bytes.Length) } else { $resp.StatusCode = 404 }; $resp.Close() }"],
+      "port": 8766,
+      "url": "http://localhost:8766"
+    }
+    ,
+    {
+      "name": "year2-level3",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "$listener = New-Object System.Net.HttpListener; $listener.Prefixes.Add('http://localhost:8767/'); $listener.Start(); Write-Host 'Listening on 8767'; while($true) { $ctx = $listener.GetContext(); $req = $ctx.Request; $resp = $ctx.Response; $path = $req.Url.LocalPath; if($path -eq '/') { $path = '/index.html' }; $file = Join-Path 'Year2/Level3' $path.TrimStart('/'); if(Test-Path $file) { $bytes = [System.IO.File]::ReadAllBytes($file); $ext = [System.IO.Path]::GetExtension($file); $ct = switch($ext) { '.html'{'text/html'} '.js'{'application/javascript'} '.css'{'text/css'} '.mp3'{'audio/mpeg'} '.wav'{'audio/wav'} default{'application/octet-stream'} }; $resp.ContentType = $ct; $resp.Headers.Add('Cache-Control','no-store'); $resp.ContentLength64 = $bytes.Length; $resp.OutputStream.Write($bytes, 0, $bytes.Length) } else { $resp.StatusCode = 404 }; $resp.Close() }"],
+      "port": 8767,
+      "url": "http://localhost:8767"
+    }
   ]
 }

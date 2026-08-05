@@ -34,18 +34,57 @@
   // ----------------------------------------------------------
 
   const PATTERNS = {
-    A: [1.0, 0.5, 0.5],
-    B: [0.5, 0.5, 0.5, 0.5],
-    C: [0.75, 0.25, 0.5, -0.5],
-    D: [1.5, 0.5],
-    E: [0.5, 0.25, 0.25, 0.5, 0.25, 0.25],
-    F: [0.5, 0.25, 0.25, 0.5, 0.5],
-    G: [0.75, 0.25, 1.0],
-    H: [0.75, 0.25, 0.5, 0.5],
-    I: [1.0, 0.5, -0.5],
-    J: [0.5, 0.5, 1.0],
-    K: [2.0],
+    A: { durs: [1.0, 0.5, 0.5],                         dirs: ["d","d","d"] },
+    B: { durs: [0.5, 0.5, 0.5, 0.5],                    dirs: ["d","d","d","d"] },
+    C: { durs: [0.75, 0.25, 0.5, -0.5],                 dirs: ["d","u","d",null] },
+    D: { durs: [1.5, 0.5],                               dirs: ["d","u"] },
+    E: { durs: [0.5, 0.25, 0.25, 0.5, 0.25, 0.25],     dirs: ["d","d","u","d","d","u"] },
+    F: { durs: [0.5, 0.25, 0.25, 0.5, 0.5],             dirs: ["d","u","d","u","d"] },
+    G: { durs: [0.75, 0.25, 1.0],                        dirs: ["d","u","d"] },
+    H: { durs: [0.75, 0.25, 0.5, 0.5],                  dirs: ["d","u","d","d"] },
+    I: { durs: [1.0, 0.5, -0.5],                         dirs: ["d","u",null] },
+    J: { durs: [0.5, 0.5, 1.0],                          dirs: ["d","u","u"] },
+    K: { durs: [2.0],                                     dirs: ["d"] },
   };
+
+  // ----------------------------------------------------------
+  // Sample map — maps chord + duration/direction to WAV file
+  // Available samples per chord: 4D, 8D, .8D, 16D, 16U, HD
+  // ----------------------------------------------------------
+
+  const SAMPLE_KEYS = ["4D", "8D", ".8D", "16D", "16U", "HD"];
+  const CHORD_NAMES = ["G", "D", "Em", "C", "E", "A"];
+
+  function getSampleKey(quarterBeats, dir) {
+    if (quarterBeats >= 2.0) return "HD";
+    if (quarterBeats >= 1.0) return "4D";
+    if (quarterBeats >= 0.75) return ".8D";
+    if (quarterBeats >= 0.5) return "8D";
+    return dir === "u" ? "16U" : "16D";
+  }
+
+  const sampleBuffers = {};
+  let samplesLoaded = false;
+
+  async function loadSamples(ctx) {
+    if (samplesLoaded) return;
+    const promises = [];
+    for (const chord of CHORD_NAMES) {
+      sampleBuffers[chord] = {};
+      for (const key of SAMPLE_KEYS) {
+        const url = "audio/" + chord + "-" + key + ".wav";
+        promises.push(
+          fetch(url)
+            .then(function (r) { return r.arrayBuffer(); })
+            .then(function (buf) { return ctx.decodeAudioData(buf); })
+            .then(function (decoded) { sampleBuffers[chord][key] = decoded; })
+            .catch(function () { /* sample missing — will fall back to synth */ })
+        );
+      }
+    }
+    await Promise.all(promises);
+    samplesLoaded = true;
+  }
 
   // ----------------------------------------------------------
   // Harmonic floor plan — 16 measures
@@ -142,19 +181,20 @@
       const allowedPatterns = slot.patterns;
 
       const patKey = allowedPatterns[Math.floor(seededRandom() * allowedPatterns.length)];
-      const durations = PATTERNS[patKey];
+      const pattern = PATTERNS[patKey];
 
       currentMeasureChords.push(chordName);
 
       const notes = [];
-      for (let i = 0; i < durations.length; i++) {
-        const dur = durations[i];
+      for (let i = 0; i < pattern.durs.length; i++) {
+        const dur = pattern.durs[i];
         const absDur = Math.abs(dur);
         const isRest = dur < 0;
         notes.push({
           pitch: isRest ? null : STRUM_DISPLAY_PITCH,
           duration: absDur,
           isRest: isRest,
+          strumDir: isRest ? null : pattern.dirs[i],
           chordName: chordName,
           chordPCs: chordDef.pcs,
           showChord: i === 0,
@@ -276,6 +316,7 @@
             quarterBeats: note.duration,
             chordPCs: note.chordPCs || [],
             chordName: note.chordName || "",
+            strumDir: note.strumDir || "d",
           });
         }
         time += note.duration * secPerQuarterBeat;
@@ -1204,51 +1245,43 @@
   let activeSources = [];
   const HIGHLIGHT_COLOR = "#00aaff";
 
-  function scheduleChordStrum(chordName, audioTime, durationSec, ctx, dest) {
-    const chordDef = CHORD_DEFS[chordName];
-    if (!chordDef) return;
+  function scheduleChordStrum(chordName, audioTime, durationSec, quarterBeats, strumDir, ctx, dest) {
+    const sampleKey = getSampleKey(quarterBeats, strumDir);
+    const buf = sampleBuffers[chordName] && sampleBuffers[chordName][sampleKey];
 
-    const tones = chordDef.tones;
-    const strumSpread = 0.015;
-
-    for (let t = 0; t < tones.length; t++) {
-      const midi = tones[t];
-      const hz = midiToHz(midi);
-      const noteStart = audioTime + t * strumSpread;
-      const noteEnd = noteStart + durationSec - t * strumSpread;
-
-      const osc = ctx.createOscillator();
-      osc.type = "triangle";
-      osc.frequency.value = hz;
-
-      const osc2 = ctx.createOscillator();
-      osc2.type = "sine";
-      osc2.frequency.value = hz * 2;
-
-      const noteGain = ctx.createGain();
-      const vol = 0.08 / tones.length;
-      noteGain.gain.setValueAtTime(0, noteStart);
-      noteGain.gain.linearRampToValueAtTime(vol, noteStart + 0.005);
-      noteGain.gain.setValueAtTime(vol, noteStart + 0.005);
-      noteGain.gain.exponentialRampToValueAtTime(vol * 0.4, noteStart + Math.min(0.3, noteEnd - noteStart));
-      noteGain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
-
-      const harmGain = ctx.createGain();
-      harmGain.gain.setValueAtTime(0, noteStart);
-      harmGain.gain.linearRampToValueAtTime(vol * 0.3, noteStart + 0.005);
-      harmGain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
-
-      osc.connect(noteGain);
-      noteGain.connect(dest);
-      osc2.connect(harmGain);
-      harmGain.connect(dest);
-
-      osc.start(noteStart);
-      osc.stop(noteEnd + 0.01);
-      osc2.start(noteStart);
-      osc2.stop(noteEnd + 0.01);
-      activeSources.push({ source: osc, gain: noteGain });
-      activeSources.push({ source: osc2, gain: harmGain });
+    if (buf) {
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const g = ctx.createGain();
+      g.gain.value = 1.0;
+      src.connect(g);
+      g.connect(dest);
+      src.start(audioTime);
+      activeSources.push({ source: src, gain: g });
+    } else {
+      const chordDef = CHORD_DEFS[chordName];
+      if (!chordDef) return;
+      const tones = chordDef.tones;
+      const strumSpread = 0.015;
+      for (let t = 0; t < tones.length; t++) {
+        const hz = midiToHz(tones[t]);
+        const noteStart = audioTime + t * strumSpread;
+        const noteEnd = noteStart + durationSec - t * strumSpread;
+        const osc = ctx.createOscillator();
+        osc.type = "triangle";
+        osc.frequency.value = hz;
+        const noteGain = ctx.createGain();
+        const vol = 0.08 / tones.length;
+        noteGain.gain.setValueAtTime(0, noteStart);
+        noteGain.gain.linearRampToValueAtTime(vol, noteStart + 0.005);
+        noteGain.gain.exponentialRampToValueAtTime(vol * 0.4, noteStart + Math.min(0.3, noteEnd - noteStart));
+        noteGain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+        osc.connect(noteGain);
+        noteGain.connect(dest);
+        osc.start(noteStart);
+        osc.stop(noteEnd + 0.01);
+        activeSources.push({ source: osc, gain: noteGain });
+      }
     }
   }
 
@@ -1296,6 +1329,8 @@
       playbackCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
     if (playbackCtx.state === "suspended") await playbackCtx.resume();
+
+    await loadSamples(playbackCtx);
 
     playbackMasterGain = playbackCtx.createGain();
     playbackMasterGain.connect(playbackCtx.destination);
@@ -1358,7 +1393,7 @@
       const noteStart = melodyBaseTime + note.startTime;
 
       if (!note.isRest && note.chordName) {
-        scheduleChordStrum(note.chordName, noteStart, note.duration * 0.9, playbackCtx, strumGain);
+        scheduleChordStrum(note.chordName, noteStart, note.duration * 0.9, note.quarterBeats || 1, note.strumDir || "d", playbackCtx, strumGain);
       }
 
       if (i < allEls.length) {

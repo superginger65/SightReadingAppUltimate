@@ -188,14 +188,20 @@
       currentMeasureChords.push(chordName);
 
       const notes = [];
+      let dirToggle = 0;
       for (let i = 0; i < durations.length; i++) {
+        const dur = durations[i];
+        const hasUpVariant = dur === 0.5 || dur === 1.0;
+        const strumDir = hasUpVariant ? (dirToggle % 2 === 0 ? "D" : "U") : "D";
+        dirToggle++;
         notes.push({
           pitch: STRUM_DISPLAY_PITCH,
-          duration: durations[i],
+          duration: dur,
           isRest: false,
           chordName: chordName,
           chordPCs: chordDef.pcs,
           showChord: i === 0,
+          strumDir: strumDir,
         });
       }
       measures.push(notes);
@@ -315,6 +321,7 @@
             quarterBeats: note.duration,
             chordPCs: note.chordPCs || [],
             chordName: note.chordName || "",
+            strumDir: note.strumDir || "D",
           });
         }
         time += note.duration * secPerQuarterBeat;
@@ -1253,7 +1260,7 @@
   // ==========================================================
 
   // ==========================================================
-  // 16b. CHORD STRUM PLAYBACK (oscillator-based)
+  // 16b. CHORD STRUM PLAYBACK (sample-based)
   // ==========================================================
 
   let playbackCtx = null;
@@ -1264,54 +1271,63 @@
   let activeSources = [];
   const HIGHLIGHT_COLOR = "#00aaff";
 
-  function scheduleChordStrum(chordName, audioTime, durationSec, ctx, dest) {
-    const chordDef = CHORD_DEFS[chordName];
-    if (!chordDef) return;
+  const ALL_CHORDS = ["Em", "Cmaj7", "A9", "D", "E7", "A7", "B7"];
+  const DUR_CODES = ["8D", "8U", "4D", "4U", "dqD", "dhD"];
 
-    const tones = chordDef.tones;
-    const strumSpread = 0.015;
+  const sampleBuffers = {};
+  let samplesLoaded = false;
 
-    for (let t = 0; t < tones.length; t++) {
-      const midi = tones[t];
-      const hz = midiToHz(midi);
-      const noteStart = audioTime + t * strumSpread;
-      const noteEnd = noteStart + durationSec - t * strumSpread;
-
-      // Fundamental
-      const osc = ctx.createOscillator();
-      osc.type = "triangle";
-      osc.frequency.value = hz;
-
-      // Slight harmonic for body
-      const osc2 = ctx.createOscillator();
-      osc2.type = "sine";
-      osc2.frequency.value = hz * 2;
-
-      const noteGain = ctx.createGain();
-      const vol = 0.08 / tones.length;
-      noteGain.gain.setValueAtTime(0, noteStart);
-      noteGain.gain.linearRampToValueAtTime(vol, noteStart + 0.005);
-      noteGain.gain.setValueAtTime(vol, noteStart + 0.005);
-      noteGain.gain.exponentialRampToValueAtTime(vol * 0.4, noteStart + Math.min(0.3, noteEnd - noteStart));
-      noteGain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
-
-      const harmGain = ctx.createGain();
-      harmGain.gain.setValueAtTime(0, noteStart);
-      harmGain.gain.linearRampToValueAtTime(vol * 0.3, noteStart + 0.005);
-      harmGain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
-
-      osc.connect(noteGain);
-      noteGain.connect(dest);
-      osc2.connect(harmGain);
-      harmGain.connect(dest);
-
-      osc.start(noteStart);
-      osc.stop(noteEnd + 0.01);
-      osc2.start(noteStart);
-      osc2.stop(noteEnd + 0.01);
-      activeSources.push({ source: osc, gain: noteGain });
-      activeSources.push({ source: osc2, gain: harmGain });
+  async function loadStrumSamples(ctx) {
+    if (samplesLoaded) return;
+    const promises = [];
+    for (const chord of ALL_CHORDS) {
+      for (const code of DUR_CODES) {
+        const key = chord + "-" + code;
+        const url = "audio/" + key + ".wav";
+        promises.push(
+          fetch(url).then(function (resp) {
+            if (!resp.ok) return;
+            return resp.arrayBuffer().then(function (buf) {
+              return ctx.decodeAudioData(buf).then(function (decoded) {
+                sampleBuffers[key] = decoded;
+              });
+            });
+          }).catch(function (e) {
+            console.warn("Sample load skipped: " + url, e);
+          })
+        );
+      }
     }
+    await Promise.all(promises);
+    samplesLoaded = true;
+  }
+
+  function durToSampleCode(quarterBeats, dir) {
+    if (quarterBeats <= 0.5) return "8" + dir;
+    if (quarterBeats <= 1.0) return "4" + dir;
+    if (quarterBeats <= 1.5) return "dqD";
+    return "dhD";
+  }
+
+  function scheduleStrumSample(chordName, durCode, audioTime, durationSec, ctx, dest) {
+    const key = chordName + "-" + durCode;
+    const buf = sampleBuffers[key];
+    if (!buf) return;
+
+    const source = ctx.createBufferSource();
+    source.buffer = buf;
+
+    const noteGain = ctx.createGain();
+    noteGain.gain.setValueAtTime(1.0, audioTime);
+    const fadeStart = audioTime + durationSec - 0.05;
+    noteGain.gain.setValueAtTime(1.0, Math.max(audioTime, fadeStart));
+    noteGain.gain.linearRampToValueAtTime(0, audioTime + durationSec);
+
+    source.connect(noteGain);
+    noteGain.connect(dest);
+    source.start(audioTime);
+    source.stop(audioTime + durationSec + 0.01);
+    activeSources.push({ source: source, gain: noteGain });
   }
 
   function getAllNoteRestEls() {
@@ -1358,6 +1374,8 @@
       playbackCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
     if (playbackCtx.state === "suspended") await playbackCtx.resume();
+
+    await loadStrumSamples(playbackCtx);
 
     playbackMasterGain = playbackCtx.createGain();
     playbackMasterGain.connect(playbackCtx.destination);
@@ -1423,7 +1441,8 @@
       const noteStart = melodyBaseTime + note.startTime;
 
       if (!note.isRest && note.chordName) {
-        scheduleChordStrum(note.chordName, noteStart, note.duration * 0.9, playbackCtx, strumGain);
+        const durCode = durToSampleCode(note.quarterBeats, note.strumDir || "D");
+        scheduleStrumSample(note.chordName, durCode, noteStart, note.duration * 0.9, playbackCtx, strumGain);
       }
 
       if (i < allEls.length) {

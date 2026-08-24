@@ -23,6 +23,7 @@
     "E7":    { display: "E7",    tones: [52, 64, 68, 71, 74],     pcs: [4, 8, 11, 2] },
     "A7":    { display: "A7",    tones: [57, 61, 64, 67],         pcs: [9, 1, 4, 7] },
     "B7":    { display: "B7",    tones: [59, 63, 66, 69],         pcs: [11, 3, 6, 9] },
+    "E13":   { display: "E13",  tones: [52, 64, 68, 73, 74],     pcs: [4, 8, 11, 1, 2] },
   };
 
   // Display pitch for notation: B4 (middle line of treble clef) for all strums
@@ -89,7 +90,7 @@
     { chord: "Em",    patterns: ["H","J"] },
   ];
 
-  const BLUES_FLOOR_PLAN = [
+  const BLUES_FLOOR_PLAN_BASE = [
     { chord: "E7", patterns: ["A","B","C","D","E"] },
     { chord: "E7", patterns: ["A","B","C","D","E"] },
     { chord: "A7", patterns: ["A","B","C","D","E"] },
@@ -102,10 +103,37 @@
     { chord: "E7", patterns: ["A","B","C","D","E"] },
     { chord: "A7", patterns: ["A","B","C","D","E"] },
     { chord: "A7", patterns: ["B","C","H"] },
-    { chord: "E7", patterns: ["A","B","C","D","E"] },
-    { chord: "A7", patterns: ["B","C","H"] },
-    { chord: "E7", patterns: ["A","B","C","D","E"] },
-    { chord: "E7", patterns: ["I"] },
+  ];
+
+  const BLUES_ENDINGS = [
+    // Alt 1: E7 → B7 → E7 → E7
+    [
+      { chord: "E7", patterns: ["A","B","C","D","E"] },
+      { chord: "B7", patterns: ["B","C","H"] },
+      { chord: "E7", patterns: ["A","B","C","D","E"] },
+      { chord: "E7", patterns: ["I"] },
+    ],
+    // Alt 2: B7 → E13 → E7 → E7
+    [
+      { chord: "B7", patterns: ["B","C","H"] },
+      { chord: "E13", patterns: ["D","H","B"] },
+      { chord: "E7", patterns: ["A","B","C","D","E"] },
+      { chord: "E7", patterns: ["I"] },
+    ],
+    // Alt 3: B7 → B7 → E7 → E7
+    [
+      { chord: "B7", patterns: ["F","G","C","D"] },
+      { chord: "B7", patterns: ["B","C","H"] },
+      { chord: "E7", patterns: ["A","B","C","D","E"] },
+      { chord: "E7", patterns: ["I"] },
+    ],
+    // Alt 4: B7 → B7 → E13 → E7 (E13 cadence variant)
+    [
+      { chord: "B7", patterns: ["F","G","C","D"] },
+      { chord: "B7", patterns: ["B","C","H"] },
+      { chord: "E13", patterns: ["D","H","B"] },
+      { chord: "E7", patterns: ["I"] },
+    ],
   ];
 
   // ==========================================================
@@ -169,8 +197,13 @@
   // Store chord info per measure for scoring
   let currentMeasureChords = [];
 
+  function buildBluesFloorPlan() {
+    const ending = BLUES_ENDINGS[Math.floor(seededRandom() * BLUES_ENDINGS.length)];
+    return BLUES_FLOOR_PLAN_BASE.concat(ending);
+  }
+
   function generateMelody(styleName, meter, difficulty, numMeasures) {
-    const floorPlan = styleName === "Blues" ? BLUES_FLOOR_PLAN : POP_FLOOR_PLAN;
+    const floorPlan = styleName === "Blues" ? buildBluesFloorPlan() : POP_FLOOR_PLAN;
     const patternLib = styleName === "Blues" ? BLUES_PATTERNS : POP_PATTERNS;
     const measures = [];
     currentMeasureChords = [];
@@ -346,6 +379,19 @@
   }
 
   let lastRenderedTune = null;
+  let currentStrumDirs = [];
+
+  function buildStrumDirList(measures) {
+    const dirs = [];
+    for (const measure of measures) {
+      for (const note of measure) {
+        if (!note.isRest && note.pitch != null) {
+          dirs.push(note.strumDir || "D");
+        }
+      }
+    }
+    return dirs;
+  }
 
   function render(abcString) {
     const el = document.getElementById("notation");
@@ -359,6 +405,78 @@
       add_classes: true,
     });
     lastRenderedTune = tuneArr && tuneArr[0];
+    addStrumArrows();
+  }
+
+  function addStrumArrows() {
+    const container = document.getElementById("notation");
+    if (!container) return;
+    container.querySelectorAll(".strum-arrow").forEach(function (a) { a.remove(); });
+
+    const svg = container.querySelector("svg");
+    if (!svg) return;
+
+    const noteEls = container.querySelectorAll(".abcjs-note");
+    const dirs = currentStrumDirs;
+    const arrowLen = 12;
+    const headSize = 3.5;
+    const gapAboveHead = 8;
+
+    for (let i = 0; i < noteEls.length && i < dirs.length; i++) {
+      const el = noteEls[i];
+      const dir = dirs[i];
+
+      const notehead = el.querySelector(".abcjs-notehead");
+      if (!notehead) continue;
+      const nhBox = notehead.getBBox();
+      const cx = nhBox.x + nhBox.width / 2;
+
+      const chordEl = el.querySelector(".abcjs-chord");
+      var arrowBottom;
+      if (chordEl) {
+        const chordBox = chordEl.getBBox();
+        arrowBottom = chordBox.y + chordBox.height + 2 + arrowLen;
+      } else {
+        arrowBottom = nhBox.y - gapAboveHead;
+      }
+      const arrowTop = arrowBottom - arrowLen;
+
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.setAttribute("class", "strum-arrow");
+
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("stroke", "#333");
+      line.setAttribute("stroke-width", "1.2");
+      g.appendChild(line);
+
+      const head = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      head.setAttribute("stroke", "#333");
+      head.setAttribute("stroke-width", "1.2");
+      head.setAttribute("fill", "none");
+      g.appendChild(head);
+
+      if (dir === "D") {
+        line.setAttribute("x1", cx);
+        line.setAttribute("y1", arrowTop);
+        line.setAttribute("x2", cx);
+        line.setAttribute("y2", arrowBottom);
+        head.setAttribute("d",
+          "M" + (cx - headSize) + "," + (arrowBottom - headSize) +
+          " L" + cx + "," + arrowBottom +
+          " L" + (cx + headSize) + "," + (arrowBottom - headSize));
+      } else {
+        line.setAttribute("x1", cx);
+        line.setAttribute("y1", arrowBottom);
+        line.setAttribute("x2", cx);
+        line.setAttribute("y2", arrowTop);
+        head.setAttribute("d",
+          "M" + (cx - headSize) + "," + (arrowTop + headSize) +
+          " L" + cx + "," + arrowTop +
+          " L" + (cx + headSize) + "," + (arrowTop + headSize));
+      }
+
+      svg.appendChild(g);
+    }
   }
 
   // ==========================================================
@@ -1044,6 +1162,7 @@
 
     currentMeasures = generateMelody(styleName, currentMeter, difficulty, currentNumMeasures);
     currentExpectedNotes = buildExpectedNotes(currentMeasures, currentBpm, currentMeter);
+    currentStrumDirs = buildStrumDirList(currentMeasures);
 
     const abc = melodyToAbc(currentMeasures, currentStyleDef, currentMeter);
     render(abc);
@@ -1271,7 +1390,7 @@
   let activeSources = [];
   const HIGHLIGHT_COLOR = "#00aaff";
 
-  const ALL_CHORDS = ["Em", "Cmaj7", "A9", "D", "E7", "A7", "B7"];
+  const ALL_CHORDS = ["Em", "Cmaj7", "A9", "D", "E7", "A7", "B7", "E13"];
   const DUR_CODES = ["8D", "8U", "4D", "4U", "dqD", "dhD"];
 
   const sampleBuffers = {};
@@ -1303,7 +1422,6 @@
   }
 
   function durToSampleCode(quarterBeats, dir) {
-    if (quarterBeats <= 0.5) return "8" + dir;
     if (quarterBeats <= 1.0) return "4" + dir;
     if (quarterBeats <= 1.5) return "dqD";
     return "dhD";
@@ -1670,6 +1788,7 @@
 
     currentMeasures = generateMelody(styleName, currentMeter, "level", currentNumMeasures);
     currentExpectedNotes = buildExpectedNotes(currentMeasures, currentBpm, currentMeter);
+    currentStrumDirs = buildStrumDirList(currentMeasures);
 
     const abc = melodyToAbc(currentMeasures, currentStyleDef, currentMeter);
     render(abc);

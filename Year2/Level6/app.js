@@ -299,16 +299,13 @@
     const keyDef = KEY_DEFS[keyName];
     const scalePitches = getScalePitches(keyDef);
 
-    const feels = [];
-    for (let m = 0; m < numMeasures; m++) {
-      if (m === 1 || m === 3 || m === 6) {
-        feels.push("34");
-      } else if (m === numMeasures - 1) {
-        feels.push("68");
-      } else {
-        feels.push(seededRandom() < 0.2 ? "34" : "68");
-      }
-    }
+    const FEEL_PATTERNS = [
+      ["68","34","68","34","68","68","34","68"],
+      ["68","34","68","34","68","34","68","68"],
+      ["68","34","68","34","34","68","34","68"],
+      ["68","34","68","34","68","34","34","68"],
+    ];
+    const feels = FEEL_PATTERNS[Math.floor(seededRandom() * FEEL_PATTERNS.length)].slice();
     currentMeasureFeels = feels;
 
     let currentPitch = keyDef.startPitches[

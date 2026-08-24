@@ -107,7 +107,7 @@
     { chord: "G",  patterns: ["A","B","C","D","J"] },
     { chord: "D",  patterns: ["E","F","G","H","I"] },
     { chord: "E",  patterns: ["B","E","F","H","I"] },
-    { chord: "G",  patterns: ["K"] },
+    { chord: "E",  patterns: ["K"] },
   ];
 
   // ==========================================================
@@ -354,6 +354,90 @@
       add_classes: true,
     });
     lastRenderedTune = tuneArr && tuneArr[0];
+    addStrumArrows();
+  }
+
+  function buildStrumDirList(measures) {
+    const dirs = [];
+    for (const measure of measures) {
+      for (const note of measure) {
+        if (!note.isRest && note.pitch != null) {
+          dirs.push(note.strumDir || "d");
+        }
+      }
+    }
+    return dirs;
+  }
+
+  function addStrumArrows() {
+    const container = document.getElementById("notation");
+    if (!container) return;
+    container.querySelectorAll(".strum-arrow").forEach(function (a) { a.remove(); });
+
+    const svg = container.querySelector("svg");
+    if (!svg) return;
+
+    const noteEls = container.querySelectorAll(".abcjs-note");
+    const dirs = currentStrumDirs;
+    const arrowLen = 12;
+    const headSize = 3.5;
+    const gapAboveHead = 8;
+
+    for (let i = 0; i < noteEls.length && i < dirs.length; i++) {
+      const el = noteEls[i];
+      const dir = dirs[i];
+
+      const notehead = el.querySelector(".abcjs-notehead");
+      if (!notehead) continue;
+      const nhBox = notehead.getBBox();
+      const cx = nhBox.x + nhBox.width / 2;
+
+      const chordEl = el.querySelector(".abcjs-chord");
+      var arrowBottom;
+      if (chordEl) {
+        const chordBox = chordEl.getBBox();
+        arrowBottom = chordBox.y + chordBox.height + 2 + arrowLen;
+      } else {
+        arrowBottom = nhBox.y - gapAboveHead;
+      }
+      const arrowTop = arrowBottom - arrowLen;
+
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.setAttribute("class", "strum-arrow");
+
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("stroke", "#333");
+      line.setAttribute("stroke-width", "1.2");
+      g.appendChild(line);
+
+      const head = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      head.setAttribute("stroke", "#333");
+      head.setAttribute("stroke-width", "1.2");
+      head.setAttribute("fill", "none");
+      g.appendChild(head);
+
+      if (dir === "d") {
+        line.setAttribute("x1", cx);
+        line.setAttribute("y1", arrowTop);
+        line.setAttribute("x2", cx);
+        line.setAttribute("y2", arrowBottom);
+        head.setAttribute("d",
+          "M" + (cx - headSize) + "," + (arrowBottom - headSize) +
+          " L" + cx + "," + arrowBottom +
+          " L" + (cx + headSize) + "," + (arrowBottom - headSize));
+      } else {
+        line.setAttribute("x1", cx);
+        line.setAttribute("y1", arrowBottom);
+        line.setAttribute("x2", cx);
+        line.setAttribute("y2", arrowTop);
+        head.setAttribute("d",
+          "M" + (cx - headSize) + "," + (arrowTop + headSize) +
+          " L" + cx + "," + arrowTop +
+          " L" + (cx + headSize) + "," + (arrowTop + headSize));
+      }
+
+      svg.appendChild(g);
+    }
   }
 
   // ==========================================================
@@ -999,6 +1083,7 @@
 
   let currentMeasures = null;
   let currentExpectedNotes = null;
+  let currentStrumDirs = [];
   const currentMeter = "2/4";
   let currentBpm = 60;
   const currentNumMeasures = 16;
@@ -1018,6 +1103,7 @@
     currentBpm = parseInt(document.getElementById("bpmSelect").value, 10);
 
     currentMeasures = generateMelody(currentNumMeasures);
+    currentStrumDirs = buildStrumDirList(currentMeasures);
     currentExpectedNotes = buildExpectedNotes(currentMeasures, currentBpm);
 
     const abc = melodyToAbc(currentMeasures);
@@ -1611,6 +1697,7 @@
     seedPRNG(dateStr + "-melody");
 
     currentMeasures = generateMelody(currentNumMeasures);
+    currentStrumDirs = buildStrumDirList(currentMeasures);
     currentExpectedNotes = buildExpectedNotes(currentMeasures, currentBpm);
 
     const abc = melodyToAbc(currentMeasures);

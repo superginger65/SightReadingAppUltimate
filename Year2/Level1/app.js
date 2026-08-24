@@ -165,9 +165,14 @@
     const plan = plans[numMeasures] || plans[8];
     const measures = [];
 
+    let overrideV = false;
+    const vChords = keyName === "Am" ? ["E", "E7"] : ["G", "G7"];
+
     for (let m = 0; m < numMeasures; m++) {
       const isLast = m === numMeasures - 1;
-      const chordOptions = plan[m % plan.length];
+      const chordOptions = (overrideV && m >= 2 && m <= 3)
+        ? vChords
+        : plan[m % plan.length];
       const chordName = chordOptions[Math.floor(seededRandom() * chordOptions.length)];
       const chord = CHORD_VOICINGS[chordName];
 
@@ -263,6 +268,13 @@
       const notes = assignNotesToBeat(beat1, chord)
                      .concat(assignNotesToBeat(beat2, chord));
       measures.push(notes);
+
+      if (m === 1) {
+        const lastNote = measures[1][measures[1].length - 1];
+        if (lastNote && lastNote.pitch === 69) {
+          overrideV = true;
+        }
+      }
     }
 
     return measures;

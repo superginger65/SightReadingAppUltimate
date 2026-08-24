@@ -20,11 +20,11 @@
   const KEY_DEFS = {
     "Am": { tonic: 57, mode: "minor", abcKey: "Am", usesFlats: false,
             allowedPitches: [57, 59, 60, 62, 64, 65, 68, 69, 71, 72, 74],
-            startPitches: [69, 64],
+            startPitches: [57, 69],
             endPitch: 69 },
     "Em": { tonic: 52, mode: "minor", abcKey: "Em", usesFlats: false,
             allowedPitches: [52, 54, 55, 57, 59, 60, 63, 64, 66, 67, 69, 71],
-            startPitches: [64, 59],
+            startPitches: [52, 64],
             endPitch: 64 },
   };
 
@@ -124,7 +124,7 @@
     }
   };
 
-  function pickNextPitch(prevPitch, prevInterval, scalePitches, keyDef, diff, beatStrength) {
+  function pickNextPitch(prevPitch, prevInterval, scalePitches, keyDef, diff, beatStrength, meter) {
     const profile = DIFFICULTY[diff];
     const idx = scalePitches.indexOf(prevPitch);
     if (idx === -1) {
@@ -160,10 +160,10 @@
         else if (deg === 2) weight *= 1.2;
       }
 
-      // Bias toward lower register: center gravity below midpoint
-      const mid = RANGE_LOW + (RANGE_HIGH - RANGE_LOW) * 0.35;
+      const isAmIn34 = keyDef.abcKey === "Am" && meter === "3/4";
+      const mid = RANGE_LOW + (RANGE_HIGH - RANGE_LOW) * (isAmIn34 ? 0.28 : 0.35);
       weight *= Math.max(0.3, 1 - Math.abs(pitch - mid) / 20);
-      if (pitch < mid) weight *= 1.4;
+      if (pitch < mid) weight *= (isAmIn34 ? 2.0 : 1.4);
 
       // Leading-tone approach: favor approaching raised 7th from below
       if (isRaised7th(pitch, keyDef)) {
@@ -315,8 +315,10 @@
         const beatStrength = isStrongBeat ? "strong" : "weak";
 
         if (isLast) {
-          notes.push({ pitch: keyDef.endPitch, duration: dur, isRest: false });
-          currentPitch = keyDef.endPitch;
+          const finalPitch = isRaised7th(currentPitch, keyDef)
+            ? keyDef.tonic : keyDef.endPitch;
+          notes.push({ pitch: finalPitch, duration: dur, isRest: false });
+          currentPitch = finalPitch;
         } else if (m === 0 && n === 0) {
           notes.push({ pitch: currentPitch, duration: dur, isRest: false });
         } else if (m === numMeasures - 2 && n === rhythm.length - 1) {
@@ -340,7 +342,7 @@
         } else if (seededRandom() < profile.restChance && beatPos > 0) {
           notes.push({ pitch: null, duration: dur, isRest: true });
         } else {
-          const nextPitch = pickNextPitch(currentPitch, prevInterval, scalePitches, keyDef, difficulty, beatStrength);
+          const nextPitch = pickNextPitch(currentPitch, prevInterval, scalePitches, keyDef, difficulty, beatStrength, meter);
           prevInterval = scalePitches.indexOf(nextPitch) - scalePitches.indexOf(currentPitch);
           currentPitch = nextPitch;
           notes.push({ pitch: nextPitch, duration: dur, isRest: false });

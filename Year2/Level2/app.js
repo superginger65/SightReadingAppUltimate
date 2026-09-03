@@ -21,11 +21,13 @@
     "Am": { tonic: 57, mode: "minor", abcKey: "Am", usesFlats: false,
             allowedPitches: [57, 59, 60, 62, 64, 65, 68, 69, 71, 72, 74],
             startPitches: [57, 69],
-            endPitch: 69 },
+            endPitch: 69,
+            keySigSharps: new Set() },
     "Em": { tonic: 52, mode: "minor", abcKey: "Em", usesFlats: false,
             allowedPitches: [52, 54, 55, 57, 59, 60, 63, 64, 66, 67, 69, 71],
             startPitches: [52, 64],
-            endPitch: 64 },
+            endPitch: 64,
+            keySigSharps: new Set([6]) },
   };
 
   const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
@@ -110,13 +112,13 @@
         "1 1 1",
         "2 1", "1 2",
         "1/2 1/2 1 1", "1 1/2 1/2 1", "1 1 1/2 1/2",
-        "3/2 1/2 1", "1 3/2 1/2",
+        "3/2 1/2 1",
       ],
       rhythms44: [
         "1 1 1 1",
         "2 1 1", "1 1 2", "1 2 1", "2 2",
         "1/2 1/2 1 1 1", "1 1/2 1/2 1 1", "1 1 1/2 1/2 1", "1 1 1 1/2 1/2",
-        "3/2 1/2 1 1", "1 3/2 1/2 1", "1 1 3/2 1/2",
+        "3/2 1/2 1 1", "1 1 3/2 1/2",
         "2 1/2 1/2 1", "1 1/2 1/2 2",
         "3/2 1/2 2", "2 3/2 1/2",
       ],
@@ -161,25 +163,35 @@
       }
 
       const isAmIn34 = keyDef.abcKey === "Am" && meter === "3/4";
-      const mid = RANGE_LOW + (RANGE_HIGH - RANGE_LOW) * (isAmIn34 ? 0.28 : 0.35);
-      weight *= Math.max(0.3, 1 - Math.abs(pitch - mid) / 20);
-      if (pitch < mid) weight *= (isAmIn34 ? 2.0 : 1.4);
+      const mid = RANGE_LOW + (RANGE_HIGH - RANGE_LOW) * (isAmIn34 ? 0.25 : 0.30);
+      weight *= Math.max(0.3, 1 - Math.abs(pitch - mid) / 18);
+      if (pitch < mid) weight *= (isAmIn34 ? 2.5 : 1.8);
 
       // Leading-tone approach: favor approaching raised 7th from below
       if (isRaised7th(pitch, keyDef)) {
         weight *= (pitch < prevPitch) ? 0.05 : 1.5;
       }
 
-      // Leading-tone departure: strongly prefer resolution up to tonic,
-      // but allow delayed resolution via dominant or supertonic
+      // Leading-tone departure: must resolve upward
       if (isRaised7th(prevPitch, keyDef)) {
         if (pitch === prevPitch + 1) {
           weight *= 8.0;
+        } else if (pitch < prevPitch) {
+          weight *= 0.0;
         } else {
           const deg = scaleDegree(pitch, keyDef);
           if (deg === 4) weight *= 0.4;
           else if (deg === 1) weight *= 0.3;
           else weight *= 0.02;
+        }
+      }
+
+      // Em-specific: penalize F#↔A interval (awkward left hand formation)
+      if (keyDef.abcKey === "Em") {
+        const prevIdx = ((prevPitch % 12) + 12) % 12;
+        const curIdx = ((pitch % 12) + 12) % 12;
+        if ((prevIdx === 6 && curIdx === 9) || (prevIdx === 9 && curIdx === 6)) {
+          weight *= 0.15;
         }
       }
 
@@ -316,7 +328,7 @@
 
         if (isLast) {
           const finalPitch = isRaised7th(currentPitch, keyDef)
-            ? keyDef.tonic : keyDef.endPitch;
+            ? currentPitch + 1 : keyDef.endPitch;
           notes.push({ pitch: finalPitch, duration: dur, isRest: false });
           currentPitch = finalPitch;
         } else if (m === 0 && n === 0) {
@@ -326,13 +338,16 @@
           // Valid approach notes: dominant (deg 4), leading tone (raised 7th),
           // supertonic (deg 1) from above
           const finalTonic = keyDef.endPitch;
-          const candidates = scalePitches.filter(p => {
+          let candidates = scalePitches.filter(p => {
             if (isRaised7th(p, keyDef)) return p < finalTonic;
             const deg = scaleDegree(p, keyDef);
             if (deg === 4) return Math.abs(p - finalTonic) <= 7;
             if (deg === 1) return p > finalTonic && p - finalTonic <= 4;
             return false;
           });
+          if (isRaised7th(currentPitch, keyDef)) {
+            candidates = candidates.filter(p => p >= currentPitch);
+          }
           const penult = candidates.length > 0
             ? candidates.reduce((a, b) => Math.abs(b - currentPitch) < Math.abs(a - currentPitch) ? b : a)
             : currentPitch;
@@ -367,6 +382,9 @@
     let name = names[noteIndex];
     let baseLetter = name.replace(/[\^_=]/g, "");
     let accidental = name.replace(baseLetter, "");
+    if (accidental === "^" && keyDef.keySigSharps && keyDef.keySigSharps.has(noteIndex)) {
+      accidental = "";
+    }
     if (octave >= 5) {
       baseLetter = baseLetter.toLowerCase();
       return accidental + baseLetter + "'".repeat(octave - 5);

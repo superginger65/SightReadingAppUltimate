@@ -181,7 +181,7 @@
         const tonicPC = keyDef.tonic % 12;
         const tonicPitch = RANGE_LOW + ((tonicPC - RANGE_LOW % 12) + 12) % 12;
         const str4 = chord[0], str3 = chord[1], str2 = chord[2];
-        const pattern = Math.floor(seededRandom() * 9);
+        const pattern = Math.floor(seededRandom() * 8);
         let finalNotes;
         switch (pattern) {
           case 0: // ESS + Q on str2 (always tied: last ESS note = str2 = Q pitch)
@@ -218,20 +218,18 @@
               { pitch: tonicPitch, duration: 1.0, isRest: false },
             ];
             break;
-          case 4: // Full measure of 16th arpeggiation on tonic chord
+          case 4: // SSSS + EE arpeggiation (no 16ths on last beat)
             finalNotes = [
               { pitch: str4, duration: 0.25, isRest: false },
               { pitch: str3, duration: 0.25, isRest: false },
               { pitch: str2, duration: 0.25, isRest: false },
               { pitch: str3, duration: 0.25, isRest: false },
-              { pitch: str4, duration: 0.25, isRest: false },
-              { pitch: str3, duration: 0.25, isRest: false },
-              { pitch: str2, duration: 0.25, isRest: false },
-              { pitch: str3, duration: 0.25, isRest: false },
+              { pitch: str4, duration: 0.5, isRest: false },
+              { pitch: str2, duration: 0.5, isRest: false },
             ];
             break;
-          case 5: // Labeled half note on tonic with chord name
-            finalNotes = [{ pitch: tonicPitch, duration: 2, isRest: false, annotation: keyName }];
+          case 5: // Half note on bass (E)
+            finalNotes = [{ pitch: str4, duration: 2, isRest: false }];
             break;
           case 6: // Q on bass (str4) + Q on tonic
             finalNotes = [
@@ -244,9 +242,6 @@
               { pitch: null, duration: 1.0, isRest: true },
               { pitch: tonicPitch, duration: 1.0, isRest: false },
             ];
-            break;
-          case 8: // Dyad: str4 + tonic as half note
-            finalNotes = [{ pitch: tonicPitch, duration: 2, isRest: false, chordPitch: str4 }];
             break;
         }
         measures.push(finalNotes);
@@ -324,7 +319,6 @@
         if (note.isRest) {
           abc += "z" + durationToAbc(note.duration);
         } else {
-          if (note.annotation) abc += '"' + note.annotation + '"';
           let noteAbc = midiToAbc(note.pitch, keyDef);
           let acc = "";
           let base = noteAbc;
@@ -333,19 +327,7 @@
           if (acc === cur) noteAbc = base;
           else if (acc === "" && cur !== "") { noteAbc = "=" + base; accState[base] = ""; }
           else accState[base] = acc;
-          if (note.chordPitch != null) {
-            let chordAbc = midiToAbc(note.chordPitch, keyDef);
-            let cAcc = "";
-            let cBase = chordAbc;
-            if (/^[\^_=]/.test(chordAbc)) { cAcc = chordAbc[0]; cBase = chordAbc.slice(1); }
-            const cCur = accState[cBase] || "";
-            if (cAcc === cCur) chordAbc = cBase;
-            else if (cAcc === "" && cCur !== "") { chordAbc = "=" + cBase; accState[cBase] = ""; }
-            else accState[cBase] = cAcc;
-            abc += "[" + chordAbc + noteAbc + "]" + durationToAbc(note.duration);
-          } else {
-            abc += noteAbc + durationToAbc(note.duration);
-          }
+          abc += noteAbc + durationToAbc(note.duration);
           if (note.tie) abc += "-";
         }
 

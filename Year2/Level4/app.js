@@ -202,6 +202,39 @@
     return BLUES_FLOOR_PLAN_BASE.concat(ending);
   }
 
+  function assignStrumDirs(durations) {
+    const isConstantEighths = durations.every(d => d === 0.5);
+    if (isConstantEighths) {
+      return durations.map((_, i) => (i % 2 === 0 ? "D" : "U"));
+    }
+
+    // Hemiola: all note attacks on even eighth positions (e.g. [1.0,1.0,1.0])
+    let hemiola = durations.length > 1;
+    if (hemiola) {
+      let pos = 0;
+      for (const d of durations) {
+        const eighthPos = Math.round(pos * 2);
+        if (eighthPos % 2 !== 0) { hemiola = false; break; }
+        pos += d;
+      }
+    }
+    if (hemiola) {
+      return durations.map(() => "D");
+    }
+
+    // Compound meter: D on primary beats (eighth 0, 3) or notes spanning beat 3
+    const dirs = [];
+    let eighthPos = 0;
+    for (const dur of durations) {
+      const durEighths = dur * 2;
+      const onPrimary = (eighthPos === 0 || eighthPos === 3);
+      const spansPrimary = (eighthPos < 3 && eighthPos + durEighths > 3);
+      dirs.push((onPrimary || spansPrimary) ? "D" : "U");
+      eighthPos += durEighths;
+    }
+    return dirs;
+  }
+
   function generateMelody(styleName, meter, difficulty, numMeasures) {
     const floorPlan = styleName === "Blues" ? buildBluesFloorPlan() : POP_FLOOR_PLAN;
     const patternLib = styleName === "Blues" ? BLUES_PATTERNS : POP_PATTERNS;
@@ -221,12 +254,10 @@
       currentMeasureChords.push(chordName);
 
       const notes = [];
-      let dirToggle = 0;
+      const strumDirs = assignStrumDirs(durations);
       for (let i = 0; i < durations.length; i++) {
         const dur = durations[i];
-        const hasUpVariant = dur === 0.5 || dur === 1.0;
-        const strumDir = hasUpVariant ? (dirToggle % 2 === 0 ? "D" : "U") : "D";
-        dirToggle++;
+        const strumDir = strumDirs[i];
         notes.push({
           pitch: STRUM_DISPLAY_PITCH,
           duration: dur,

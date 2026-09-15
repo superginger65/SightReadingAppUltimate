@@ -49,6 +49,16 @@
   const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
   const MINOR_SCALE = [0, 2, 3, 5, 7, 8, 10];
 
+  const KEY_SIG_ACCIDENTALS = {
+    "C":  {},
+    "G":  { F: "^" },
+    "D":  { F: "^", C: "^" },
+    "F":  { B: "_" },
+    "Am": {},
+    "Em": { F: "^" },
+    "Gm": { B: "_", E: "_" },
+  };
+
   // ==========================================================
   // 1b. SEEDED PSEUDO-RANDOM NUMBER GENERATOR
   // ==========================================================
@@ -512,12 +522,14 @@
       }
 
       const notes = [];
+      let beatPos = 0;
 
       for (let n = 0; n < rhythm.length; n++) {
         const dur = rhythm[n];
 
         if (m === 0 && n === 0) {
           notes.push({ pitch: currentPitch, duration: dur, isRest: false });
+          beatPos += dur;
           continue;
         }
 
@@ -528,12 +540,17 @@
           prevInterval = scalePitches.indexOf(cadencePitch) - scalePitches.indexOf(currentPitch);
           currentPitch = cadencePitch;
           notes.push({ pitch: cadencePitch, duration: dur, isRest: false });
+          beatPos += dur;
           continue;
         }
 
-        // Rest insertion (skip first beat, V chord measures, and cadence areas)
-        if (restChance > 0 && n > 0 && !isVChord && m < numMeasures - 2 && seededRandom() < restChance) {
+        // Rest insertion: skip first note, V chord measures, cadence area;
+        // short rests (< 1 QB) only on beat boundaries
+        const onBeat = Math.abs(beatPos - Math.round(beatPos)) < 0.01 && beatPos % 1 < 0.01;
+        const restAllowed = dur >= 1 || onBeat;
+        if (restChance > 0 && n > 0 && restAllowed && !isVChord && m < numMeasures - 2 && seededRandom() < restChance) {
           notes.push({ pitch: null, duration: dur, isRest: true });
+          beatPos += dur;
           continue;
         }
 
@@ -551,6 +568,7 @@
         prevInterval = scalePitches.indexOf(nextPitch) - scalePitches.indexOf(currentPitch);
         currentPitch = nextPitch;
         notes.push({ pitch: nextPitch, duration: dur, isRest: false });
+        beatPos += dur;
       }
 
       measures.push(notes);
@@ -571,6 +589,15 @@
     if (isRaised7th(midi, keyDef)) name = NOTE_NAMES[noteIndex];
     let baseLetter = name.replace(/[\^_=]/g, "");
     let accidental = name.replace(baseLetter, "");
+
+    const keySig = KEY_SIG_ACCIDENTALS[keyDef.abcKey] || {};
+    const sigAcc = keySig[baseLetter.toUpperCase()] || "";
+    if (accidental === sigAcc) {
+      accidental = "";
+    } else if (accidental === "" && sigAcc !== "") {
+      accidental = "=";
+    }
+
     if (octave >= 5) {
       baseLetter = baseLetter.toLowerCase();
       return accidental + baseLetter + "'".repeat(octave - 5);
@@ -603,11 +630,9 @@
       const accState = {};
       let beatPosEighths = 0;
 
-      if (i === 0) abc += "|";
-
       for (let j = 0; j < measure.length; j++) {
         const note = measure[j];
-        const durEighths = Math.round(note.duration * 2);
+        const durEighths = note.duration * 2;
 
         if (note.isRest) {
           abc += "z" + durationToAbc(note.duration);
@@ -627,13 +652,13 @@
         const nextNote = measure[j + 1];
         if (nextNote) {
           const nextBeatPosEighths = beatPosEighths + durEighths;
-          const nextDurEighths = Math.round(nextNote.duration * 2);
+          const nextDurEighths = nextNote.duration * 2;
           const groupSize = meter === "6/8" ? 3 : 2;
-          const isSubBeat = durEighths < groupSize;
-          const nextIsSubBeat = nextDurEighths < groupSize;
+          const isBeamable = durEighths < groupSize;
+          const nextIsBeamable = nextDurEighths < groupSize;
 
           let sameGroup = false;
-          if (isSubBeat && nextIsSubBeat) {
+          if (isBeamable && nextIsBeamable) {
             const curGroup = Math.floor(beatPosEighths / groupSize);
             const nextGroup = Math.floor(nextBeatPosEighths / groupSize);
             sameGroup = curGroup === nextGroup;
